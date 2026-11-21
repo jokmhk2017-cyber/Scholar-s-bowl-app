@@ -18,6 +18,7 @@
       --bg-surface: #111827;
       --bg-card: #1f293d;
       --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(56, 189, 248, 0.4);
       --accent-cyan: #0ea5e9;
       --accent-glow: rgba(14, 165, 233, 0.25);
       --team-red-base: #f43f5e;
@@ -316,8 +317,8 @@
 
         <label class="label-text">Display Mode Setting</label>
         <select id="display-mode-select" class="input-field">
-          <option value="reading-stream" selected>Reading & Text (Word-by-Word Stream)</option>
-          <option value="text-only">Text Only (Instant Full Question)</option>
+          <option value="reading-stream" selected>Scrolling Text Stream (Word-by-Word)</option>
+          <option value="text-only">Instant Full Question Text</option>
         </select>
 
         <div class="grid-2" style="gap:10px; margin-bottom:6px;">
@@ -326,10 +327,10 @@
             <input type="range" id="wpm-slider" min="120" max="380" value="220" style="width:100%; accent-color:var(--accent-cyan);" oninput="document.getElementById('wpm-display').textContent=this.value">
           </div>
           <div>
-            <label class="label-text">Moderator Voice</label>
+            <label class="label-text">Moderator Voice (AI Reader)</label>
             <select id="tts-select" class="input-field" style="margin-bottom:0;">
-              <option value="on" selected>On (Web Speech Audio)</option>
-              <option value="off">Off (Silent)</option>
+              <option value="on" selected>On (Read Aloud on All Devices)</option>
+              <option value="off">Off (Silent Display Only)</option>
             </select>
           </div>
         </div>
@@ -489,6 +490,7 @@
   let roomListenerRef = null;
   let triviaQADataSet = [];
   let currentStreamTimer = null;
+  let lastSpokenQuestionText = "";
 
   let fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -559,6 +561,9 @@
   function speakModeratorAudio(text) {
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
+    if (text === lastSpokenQuestionText) return; // Prevent duplicate overlapping speech triggers
+    lastSpokenQuestionText = text;
+
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text.replace(/\(\*\)/g, ' '));
     const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
@@ -749,6 +754,8 @@
       const data = snapshot.val();
       if (!data) return;
 
+      activeDisplayMode = data.displayMode || "reading-stream";
+
       const roster = data.roster || [];
       const teamA = roster.filter(p => p.team === 'A');
       const teamB = roster.filter(p => p.team === 'B');
@@ -776,6 +783,9 @@
 
         if (gState.status === "READING") {
           document.getElementById('buzz-in-btn').disabled = currentUser.isHost;
+          if (!currentUser.isHost && gState.questionText) {
+            speakModeratorAudio(gState.questionText);
+          }
         } else {
           document.getElementById('buzz-in-btn').disabled = true;
         }
@@ -817,41 +827,49 @@
     const fullText = q.text.replace(/\(\*\)/g, '');
 
     if (currentStreamTimer) clearInterval(currentStreamTimer);
+    lastSpokenQuestionText = "";
 
-    if (activeDisplayMode === 'text-only') {
-      dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-        status: "READING",
-        questionText: fullText,
-        answerline: q.answer,
-        buzzPlayer: null
-      });
-      speakModeratorAudio(fullText);
-    } else {
-      // Word-by-word streaming mode
-      dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-        status: "READING",
-        questionText: "",
-        answerline: q.answer,
-        buzzPlayer: null
-      });
+    dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then((snap) => {
+      const currentGs = snap.val() || {};
+      const nextIndex = (currentGs.questionIndex || 0) + 1;
 
-      speakModeratorAudio(fullText);
+      if (activeDisplayMode === 'text-only') {
+        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
+          status: "READING",
+          questionIndex: nextIndex,
+          questionText: fullText,
+          answerline: q.answer,
+          buzzPlayer: null
+        });
+        speakModeratorAudio(fullText);
+      } else {
+        // Word-by-word streaming mode across all connected screens
+        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
+          status: "READING",
+          questionIndex: nextIndex,
+          questionText: "",
+          answerline: q.answer,
+          buzzPlayer: null
+        });
 
-      const words = fullText.split(' ');
-      let currentWordIndex = 0;
-      const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
-      const delayMs = Math.max(80, Math.floor(60000 / (wpm * 1.2)));
+        speakModeratorAudio(fullText);
 
-      currentStreamTimer = setInterval(() => {
-        if (currentWordIndex < words.length) {
-          const partialText = words.slice(0, currentWordIndex + 1).join(' ');
-          dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ questionText: partialText });
-          currentWordIndex++;
-        } else {
-          clearInterval(currentStreamTimer);
-        }
-      }, delayMs);
-    }
+        const words = fullText.split(' ');
+        let currentWordIndex = 0;
+        const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
+        const delayMs = Math.max(70, Math.floor(60000 / (wpm * 1.2)));
+
+        currentStreamTimer = setInterval(() => {
+          if (currentWordIndex < words.length) {
+            const partialText = words.slice(0, currentWordIndex + 1).join(' ');
+            dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ questionText: partialText });
+            currentWordIndex++;
+          } else {
+            clearInterval(currentStreamTimer);
+          }
+        }, delayMs);
+      }
+    });
   }
 
   function triggerBuzzer() {
