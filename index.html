@@ -1820,11 +1820,9 @@
 
         if (gState.status === "READING") {
 
-          // Enable buzzer for competitors
+          // Competitors can always buzz in during reading
 
-          const isHostOnly = currentUser.isHost && currentUser.team === 'Host';
-
-          document.getElementById('buzz-in-btn').disabled = isHostOnly;
+          document.getElementById('buzz-in-btn').disabled = false;
 
           
 
@@ -2114,8 +2112,6 @@
 
   function triggerBuzzer() {
 
-    if (currentUser.isHost && currentUser.team === 'Host') return;
-
     if (currentStreamTimer) clearInterval(currentStreamTimer);
 
     if (clientTimerInterval) clearInterval(clientTimerInterval);
@@ -2324,7 +2320,7 @@
 
     if (isTyping) return;
 
-    if (e.code === 'Space' && !(currentUser.isHost && currentUser.team === 'Host')) {
+    if (e.code === 'Space') {
 
       e.preventDefault();
 
