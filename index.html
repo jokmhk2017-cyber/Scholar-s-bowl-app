@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KSHSAA 5v5 Scholars Bowl - Live Cloud Championship Edition</title>
+  <title>KSHSAA 5v5 Scholars Bowl - Full Cloud Championship Edition</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -84,7 +84,6 @@
     }
 
     .brand-title span { color: var(--accent-cyan); }
-
     .nav-tabs-group { display: flex; gap: 8px; }
 
     .tab-btn {
@@ -240,22 +239,6 @@
       box-sizing: border-box;
     }
 
-    .timer-track {
-      width: 100%;
-      height: 6px;
-      background: var(--bg-base);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-bottom: 16px;
-    }
-
-    .timer-fill {
-      height: 100%;
-      width: 100%;
-      background: var(--accent-gold);
-      transition: width 0.1s linear;
-    }
-
     .status-alert-bar {
       background: var(--bg-card);
       border-left: 4px solid var(--accent-gold);
@@ -307,7 +290,6 @@
 <body>
 
 <div class="app-frame">
-  <!-- TOP NAVIGATION HEADER -->
   <header class="app-header">
     <div class="brand-title">
       <span>🏆</span> KSHSAA 5v5 <span>Cloud Arena</span>
@@ -367,7 +349,7 @@
 
         <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:12px; border-radius:10px; margin-top:16px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:0.8rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA-20K Dataset: Standby</span>
+            <span style="font-size:0.8rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA Dataset: Standby</span>
             <button class="util-btn" onclick="syncTriviaDataset()">Sync Database</button>
           </div>
         </div>
@@ -458,12 +440,8 @@
       <span style="color:var(--accent-cyan);" id="arena-status-tag">CLOUD SYNCHRONIZED ARENA</span>
       <div style="display:flex; align-items:center; gap:12px;">
         <button class="util-btn" id="arena-voice-toggle" onclick="toggleArenaVoice()">🔊 Voice: ON</button>
-        <span>PERSONAL: <span id="personal-score">0</span></span>
+        <span>ROLE: <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span></span>
       </div>
-    </div>
-
-    <div class="timer-track">
-      <div class="timer-fill" id="question-timer-bar"></div>
     </div>
 
     <div class="question-display-box" id="active-question-box">
@@ -476,11 +454,10 @@
 
     <div class="control-actions-row" id="host-controls-row">
       <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:200px;" onclick="triggerBuzzer()" disabled>🔔 BUZZ IN ([SPACE])</button>
-      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto;" onclick="toggleMatchPause()">⏸️ Pause</button>
-      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionItem()">⏭️ Next Question</button>
+      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next Question</button>
     </div>
 
-    <div id="answer-input-container" class="hidden" style="max-width:480px; margin:0 auto;">
+    <div id="answer-input-container" class="hidden" style="max-width:480px; margin:0 auto; margin-bottom:14px;">
       <input type="text" id="competitor-answer-input" class="input-field" placeholder="Type answer & press Enter..." autocomplete="off">
       <button class="btn-action" onclick="submitCompetitorAnswer()">Submit Answer</button>
     </div>
@@ -493,7 +470,6 @@
 </div>
 
 <script>
-  // FIREBASE CLOUD DATABASE SETUP
   const firebaseConfig = {
     apiKey: "AIzaSyA-4QYBAyBWKKiPX40QvgOabJZNKVeQg6m",
     authDomain: "kshsaa-scholars-bowl.firebaseapp.com",
@@ -517,17 +493,14 @@
   let fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
     { text: "Passed in 1854, this legislation repealed the Missouri Compromise and allowed popular sovereignty, triggering Bleeding Kansas. (*) Name this act.", answer: "Kansas-Nebraska Act" },
-    { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon" },
-    { text: "This geometric theorem states that the square of the hypotenuse equals the sum of the squares of the other two legs in a right triangle. (*) Name it.", answer: "Pythagorean Theorem" },
-    { text: "Painted in June 1889 from an asylum window in Saint-Rémy, (*) this Post-Impressionist masterpiece features swirling yellow stars and a cypress tree. Name it.", answer: "The Starry Night" },
-    { text: "Stretching along the western coast of South America, this mountain range contains Mount Aconcagua. (*) Name it.", answer: "Andes Mountains" }
+    { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon" }
   ];
 
   async function syncTriviaDataset() {
     const statusMsg = document.getElementById('db-status-msg');
-    statusMsg.textContent = "Connecting to Trivia-QA-20K dataset API...";
+    statusMsg.textContent = "Connecting to Trivia-QA dataset API...";
     try {
-      const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=50');
+      const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=30');
       if (!response.ok) throw new Error('API unreachable');
       const data = await response.json();
       if (data && data.rows && data.rows.length > 0) {
@@ -549,7 +522,6 @@
     }
   }
 
-  // AUDIO & TTS
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   function playSoundEffect(type) {
     if (!audioCtx) return;
@@ -656,7 +628,6 @@
 
   function toggleContrast() { document.body.classList.toggle('high-contrast'); }
 
-  // HOST & ROOM SYNC LOGIC
   function hostAndOpenRoom() {
     const hostName = document.getElementById('host-name-input').value.trim() || "Moderator";
     activeDisplayMode = document.getElementById('display-mode-select').value;
@@ -675,8 +646,7 @@
         questionIndex: 0,
         questionText: "Waiting for host to start match...",
         answerline: "",
-        buzzPlayer: null,
-        activeSpeaker: ""
+        buzzPlayer: null
       }
     };
 
@@ -771,7 +741,6 @@
     });
   }
 
-  // REAL-TIME SYNCHRONIZATION LISTENER
   function setupRoomRealtimeListener(pin) {
     if (roomListenerRef) roomListenerRef.off();
     roomListenerRef = dbRef.ref('rooms/' + pin);
@@ -780,7 +749,6 @@
       const data = snapshot.val();
       if (!data) return;
 
-      // Update Roster UI
       const roster = data.roster || [];
       const teamA = roster.filter(p => p.team === 'A');
       const teamB = roster.filter(p => p.team === 'B');
@@ -789,7 +757,6 @@
       document.getElementById('list-a').innerHTML = teamA.map(p => `<li>• ${p.name}</li>`).join('');
       document.getElementById('list-b').innerHTML = teamB.map(p => `<li>• ${p.name}</li>`).join('');
 
-      // Update Arena Desks
       const grid = document.getElementById('arena-roster-grid');
       if (grid) {
         grid.innerHTML = roster.map(p => `
@@ -800,7 +767,6 @@
         `).join('');
       }
 
-      // Update Game State & Scores
       const gState = data.gameState;
       if (gState) {
         document.getElementById('score-a').textContent = gState.scoreA || 0;
@@ -808,8 +774,8 @@
         document.getElementById('rotation-status-badge').textContent = `ROUND QUESTION ${gState.questionIndex || 1} / 16`;
         document.getElementById('active-question-box').innerHTML = gState.questionText || "";
 
-        if (gState.status === "READING" || gState.status === "PAUSED") {
-          document.getElementById('buzz-in-btn').disabled = false;
+        if (gState.status === "READING") {
+          document.getElementById('buzz-in-btn').disabled = currentUser.isHost;
         } else {
           document.getElementById('buzz-in-btn').disabled = true;
         }
@@ -826,7 +792,8 @@
         }
       }
 
-      // Host UI Control Visibility
+      document.getElementById('personal-role-tag').textContent = currentUser.isHost ? "HOST / MODERATOR" : `COMPETITOR (${currentUser.team})`;
+
       if (currentUser.isHost) {
         document.querySelectorAll('.host-only-control').forEach(el => el.classList.remove('hidden'));
         document.getElementById('host-roster-controls').style.display = 'grid';
@@ -837,13 +804,12 @@
         document.getElementById('start-match-btn').style.display = 'none';
       }
 
-      if (data.gameState && data.gameState.status !== "LOBBY" && document.getElementById('screen-arena').className.indexOf('active') === -1) {
+      if (data.gameState && data.gameState.status !== "LOBBY" && !document.getElementById('screen-arena').classList.contains('active')) {
         switchScreen('arena');
       }
     });
   }
 
-  // HOST QUESTION PACING
   function loadNextQuestionCloud() {
     if (!currentUser.isHost) return;
     let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
@@ -858,13 +824,8 @@
     speakModeratorAudio(q.text);
   }
 
-  function toggleMatchPause() {
-    if (!currentUser.isHost) return;
-    if ('speechSynthesis' in window) window.speechSynthesis.pause();
-  }
-
   function triggerBuzzer() {
-    if (currentUser.isHost) return; // Host is moderator/reader, doesn't buzz
+    if (currentUser.isHost) return;
     playSoundEffect('buzz');
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
       status: "BUZZED",
@@ -905,7 +866,7 @@
   }
 
   window.addEventListener('keydown', (e) => {
-    if (document.getElementById('screen-arena').className.indexOf('active') === -1) return;
+    if (!document.getElementById('screen-arena').classList.contains('active')) return;
     const isTyping = document.activeElement.tagName === 'INPUT';
     if (e.key === 'Enter' && isTyping) {
       e.preventDefault();
