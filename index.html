@@ -181,6 +181,7 @@
     }
 
     .btn-secondary { background: #334155; color: white; box-shadow: none; }
+    .btn-action:disabled, .util-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
 
     .arena-scoreboard {
       display: grid;
@@ -512,6 +513,8 @@
 </div>
 
 <script>
+  // Firebase client configuration. Protect your database with Firebase Security Rules;
+  // the API key is not a substitute for database authorization.
   const firebaseConfig = {
     apiKey: "AIzaSyA-4QYBAyBWKKiPX40QvgOabJZNKVeQg6m",
     authDomain: "kshsaa-scholars-bowl.firebaseapp.com",
@@ -523,10 +526,19 @@
     measurementId: "G-F4Y0FD1RSM"
   };
 
-  firebase.initializeApp(firebaseConfig);
+  if (!window.firebase || !firebase.database) {
+    alert("Firebase failed to load. Check your internet connection and reload this page.");
+    throw new Error("Firebase SDK unavailable");
+  }
+  if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
   const dbRef = firebase.database();
 
-  let currentUser = { name: "Moderator", team: "Host", isHost: true };
+  function makeClientId() {
+    if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+    return "p_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 12);
+  }
+
+  let currentUser = { name: "Moderator", team: "Host", isHost: true, clientId: makeClientId() };
   let activeRoomPin = "";
   let activeDisplayMode = "reading-stream";
   let activeAudioTarget = "all-devices";
@@ -534,11 +546,18 @@
   let triviaQADataSet = [];
   let currentStreamTimer = null;
   let clientTimerInterval = null;
-  let lastSpokenFullText = "";
+  let lastSpokenRunKey = "";
   let activeUtterance = null;
-  let isReadingFinished = false;
+  let currentGameState = null;
+  let lastStartedReadingRunKey = "";
+  let readingParts = null;
+  let activeClockKey = "";
+  let activeBuzzPlayerId = null;
+  let isResolvingTimeout = false;
+  let localTtsEnabled = true;
+  let usedQuestionKeys = [];
 
-  let fallbackQuestions = [
+  const fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
     { text: "Passed in 1854, this legislation repealed the Missouri Compromise and allowed popular sovereignty, triggering Bleeding Kansas. (*) Name this act.", answer: "Kansas-Nebraska Act" },
     { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon" },
@@ -548,67 +567,129 @@
     { text: "Introduced by Adam Smith in The Wealth of Nations, this economic metaphor describes the self-regulating nature of a free market. (*) Name it.", answer: "Invisible Hand" },
     { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles" },
     { text: "Orbiting between Mars and Jupiter, this largest asteroid and dwarf planet was discovered by Giuseppe Piazzi in 1801. (*) Name it.", answer: "Ceres" },
-    { text: "Written in 1849, this short story by Edgar Allan Poe features the narrator burying his wife Madeline alive in the family vault. (*) Name it.", answer: "The Fall of the House of Usher" },
-    { text: "This particle physics standard model boson is responsible for giving other fundamental particles their mass. (*) Name it.", answer: "Higgs Boson" },
+    { text: "First published in 1839, this short story by Edgar Allan Poe features the narrator visiting the crumbling home of Roderick Usher. (*) Name it.", answer: "The Fall of the House of Usher" },
+    { text: "This particle physics Standard Model boson is associated with the mechanism that gives fundamental particles mass. (*) Name it.", answer: "Higgs Boson" },
     { text: "Signed in 1215 at Runnymede by King John, (*) this charter limited royal power and protected feudal liberties. Name it.", answer: "Magna Carta" },
     { text: "This composer wrote the Goldberg Variations and the Brandenburg Concertos. (*) Name him.", answer: "Johann Sebastian Bach" },
     { text: "Formulated by Albert Einstein in 1915, this theory describes gravity not as a force, but as spacetime curvature. (*) Name it.", answer: "General Relativity" },
-    { text: "Located in East Africa, this rift valley lake system contains the highest biodiversity of fish species of any lake on Earth. (*) Name Lake Malawi or Lake Victoria.", answer: "Lake Victoria" },
+    { text: "Located in East Africa, this large lake is shared by Tanzania, Uganda, and Kenya and is a major source of the White Nile. (*) Name it.", answer: "Lake Victoria" },
     { text: "This foundational economic principle states that, assuming all else remains constant, an increase in the price of a good leads to an increase in quantity supplied. (*) Name it.", answer: "Law of Supply" }
   ];
 
-  async function syncTriviaDataset() {
-    const statusMsg = document.getElementById('db-status-msg');
-    statusMsg.textContent = "Connecting to Trivia-QA-20K dataset API...";
-    try {
-      const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=100');
-      if (!response.ok) throw new Error('API unreachable');
-      const data = await response.json();
-      if (data && data.rows && data.rows.length > 0) {
-        triviaQADataSet = data.rows.map(r => {
-          const row = r.row || {};
-          return {
-            text: (row.question || row.Question || "Trivia Question") + " (*)",
-            answer: row.answer || row.Answer || row.normalized_answer || "Unknown"
-          };
-        });
-        statusMsg.textContent = `Synced ${triviaQADataSet.length} questions from Trivia-QA-20K!`;
-        statusMsg.style.color = "var(--team-green-base)";
+  function setDatasetStatus(message, color) {
+    const statusMsg = document.getElementById("db-status-msg");
+    if (!statusMsg) return;
+    statusMsg.textContent = message;
+    if (color) statusMsg.style.color = color;
+  }
+
+  // Small CSV parser that correctly handles quoted commas, escaped quotes, and
+  // newlines inside quoted fields. The source file is only about 1.9 MB.
+  function parseCSV(csvText) {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < csvText.length; i++) {
+      const char = csvText[i];
+      if (char === '"') {
+        if (inQuotes && csvText[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === "," && !inQuotes) {
+        row.push(field);
+        field = "";
+      } else if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && csvText[i + 1] === "\n") i++;
+        row.push(field);
+        if (row.some(value => value.trim() !== "")) rows.push(row);
+        row = [];
+        field = "";
       } else {
-        throw new Error('Empty');
+        field += char;
       }
+    }
+    if (field.length || row.length) {
+      row.push(field);
+      if (row.some(value => value.trim() !== "")) rows.push(row);
+    }
+    return rows;
+  }
+
+  async function syncTriviaDataset() {
+    setDatasetStatus("Downloading the 20,000-question Trivia-QA CSV...");
+    try {
+      // This dataset is published as CSV. Its /rows viewer endpoint is not
+      // suitable because the dataset has no Parquet export.
+      const csvUrl = "https://huggingface.co/datasets/prajwalmani/trivia-qa-20k/resolve/main/trivia_20k.csv";
+      const response = await fetch(csvUrl);
+      if (!response.ok) throw new Error("Dataset download returned HTTP " + response.status);
+      const csvText = await response.text();
+      const rows = parseCSV(csvText);
+      if (rows.length < 2) throw new Error("The downloaded CSV did not contain question rows");
+
+      const headers = rows[0].map(value => value.replace(/^\uFEFF/, "").trim().toLowerCase());
+      const questionColumn = headers.indexOf("question");
+      const answerColumn = headers.indexOf("answer");
+      if (questionColumn < 0 || answerColumn < 0) throw new Error("CSV is missing the question or answer column");
+
+      const unique = new Map();
+      rows.slice(1).forEach(columns => {
+        const question = String(columns[questionColumn] || "").trim();
+        const answer = String(columns[answerColumn] || "").trim();
+        if (!question || !answer) return;
+        const key = question.toLowerCase();
+        if (!unique.has(key)) unique.set(key, {
+          text: question.replace(/\s+/g, " ") + " (*)",
+          answer,
+          acceptedAnswers: [answer]
+        });
+      });
+      triviaQADataSet = [...unique.values()];
+      if (!triviaQADataSet.length) throw new Error("No valid question-answer pairs were found in the CSV");
+      setDatasetStatus(`Loaded ${triviaQADataSet.length.toLocaleString()} unique questions from Trivia-QA.`, "var(--team-green-base)");
     } catch (err) {
-      statusMsg.textContent = "Using robust embedded 16-question KSHSAA packet bank";
-      statusMsg.style.color = "var(--accent-gold)";
+      console.warn("Trivia-QA download failed; using embedded questions:", err);
+      triviaQADataSet = [];
+      setDatasetStatus("Dataset unavailable. Using the embedded 16-question fallback packet.", "var(--accent-gold)");
     }
   }
 
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  let audioCtx = null;
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) audioCtx = new AudioContextClass();
+  } catch (err) {
+    console.warn("Audio effects unavailable:", err);
+  }
+
   function playSoundEffect(type) {
     if (!audioCtx) return;
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
     const now = audioCtx.currentTime;
-
-    if (type === 'buzz') {
-      osc.type = 'sawtooth';
+    if (type === "buzz") {
+      osc.type = "sawtooth";
       osc.frequency.setValueAtTime(180, now);
       osc.frequency.exponentialRampToValueAtTime(90, now + 0.15);
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
       osc.start(now); osc.stop(now + 0.15);
-    } else if (type === 'correct') {
-      osc.type = 'sine';
+    } else if (type === "correct") {
+      osc.type = "sine";
       osc.frequency.setValueAtTime(523.25, now);
       osc.frequency.setValueAtTime(659.25, now + 0.1);
       gain.gain.setValueAtTime(0.2, now);
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.start(now); osc.stop(now + 0.3);
-    } else if (type === 'neg') {
-      osc.type = 'square';
+    } else if (type === "neg") {
+      osc.type = "square";
       osc.frequency.setValueAtTime(110, now);
       osc.frequency.setValueAtTime(80, now + 0.15);
       gain.gain.setValueAtTime(0.2, now);
@@ -618,167 +699,259 @@
   }
 
   function unlockAudioEngine() {
-    if (audioCtx && audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
-    if ('speechSynthesis' in window) {
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+    if ("speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined") {
       window.speechSynthesis.cancel();
-      const dummy = new SpeechSynthesisUtterance('');
-      window.speechSynthesis.speak(dummy);
     }
   }
 
-  function speakFullQuestionAudio(text) {
-    const ttsEnabled = document.getElementById('tts-select').value === 'on';
-    if (!ttsEnabled || !('speechSynthesis' in window)) return;
-    if (activeAudioTarget === 'host-only' && !currentUser.isHost) return;
+  function cancelLocalReading() {
+    if (currentStreamTimer) clearInterval(currentStreamTimer);
+    currentStreamTimer = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    activeUtterance = null;
+  }
 
-    if (text === lastSpokenFullText) return;
-    lastSpokenFullText = text;
+  function maybeOpenBuzzPeriod(runKey) {
+    if (!currentUser.isHost || !readingParts || readingParts.runKey !== runKey) return;
+    if (!readingParts.streamFinished || !readingParts.speechFinished || readingParts.completed) return;
+    readingParts.completed = true;
+    const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+    stateRef.transaction(gs => {
+      if (!gs || gs.status !== "READING") return;
+      if ((gs.questionId + ":" + (gs.resumeToken || 0)) !== runKey) return;
+      gs.status = "BUZZ_OPEN";
+      gs.readingFinished = true;
+      gs.buzzDeadline = Date.now() + 10000;
+      gs.answerDeadline = null;
+      return gs;
+    }, (error, committed) => {
+      if (error) console.error("Could not open buzz period:", error);
+      if (committed) startLocalClock(currentGameState || {});
+    }, false);
+  }
 
+  function speakFullQuestionAudio(gameState, runKey) {
+    if (!gameState || !gameState.fullQuestion || !localTtsEnabled) return;
+    if (!gameState.voiceEnabled || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
+    if (activeAudioTarget === "host-only" && !currentUser.isHost) return;
+    if (lastSpokenRunKey === runKey) return;
+    lastSpokenRunKey = runKey;
     window.speechSynthesis.cancel();
-    const cleanText = text.replace(/\(\*\)/g, ' ');
+    const cleanText = String(gameState.fullQuestion).replace(/\(\*\)/g, " ");
     activeUtterance = new SpeechSynthesisUtterance(cleanText);
-    const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
+    const wpmControl = document.getElementById("wpm-slider");
+    const wpm = wpmControl ? (parseInt(wpmControl.value, 10) || 220) : 220;
     activeUtterance.rate = Math.min(2.5, Math.max(0.55, wpm / 180));
-    
     activeUtterance.onend = () => {
-      isReadingFinished = true;
-      dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snap => {
-        const gs = snap.val() || {};
-        if (gs.status === "READING") {
-          startBuzzTimer();
-        }
-      });
+      if (currentUser.isHost && readingParts && readingParts.runKey === runKey) {
+        readingParts.speechFinished = true;
+        maybeOpenBuzzPeriod(runKey);
+      }
     };
-
+    activeUtterance.onerror = () => {
+      if (currentUser.isHost && readingParts && readingParts.runKey === runKey) {
+        readingParts.speechFinished = true;
+        maybeOpenBuzzPeriod(runKey);
+      }
+    };
     window.speechSynthesis.speak(activeUtterance);
   }
 
-  function toggleArenaVoice() {
-    const select = document.getElementById('tts-select');
-    const btn = document.getElementById('arena-voice-toggle');
-    if (select.value === 'on') {
-      select.value = 'off';
-      btn.textContent = '🔇 Voice: OFF';
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  function startQuestionReading(gameState) {
+    if (!currentUser.isHost || !gameState || gameState.status !== "READING") return;
+    const runKey = gameState.questionId + ":" + (gameState.resumeToken || 0);
+    if (!gameState.questionId || lastStartedReadingRunKey === runKey) return;
+    lastStartedReadingRunKey = runKey;
+    if (currentStreamTimer) clearInterval(currentStreamTimer);
+    currentStreamTimer = null;
+
+    const canHostSpeak = Boolean(gameState.voiceEnabled && localTtsEnabled && "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined");
+    readingParts = {
+      runKey,
+      streamFinished: activeDisplayMode !== "reading-stream",
+      speechFinished: !canHostSpeak,
+      completed: false
+    };
+
+    if (activeDisplayMode === "reading-stream") {
+      const words = String(gameState.fullQuestion || "").trim().split(/\s+/).filter(Boolean);
+      let wordIndex = 0;
+      const wpmControl = document.getElementById("wpm-slider");
+      const wpm = wpmControl ? (parseInt(wpmControl.value, 10) || 220) : 220;
+      const delayMs = Math.max(70, Math.floor(60000 / (wpm * 1.2)));
+      currentStreamTimer = setInterval(() => {
+        if (!currentGameState || currentGameState.status !== "READING" || currentGameState.questionId !== gameState.questionId || (currentGameState.resumeToken || 0) !== (gameState.resumeToken || 0)) {
+          clearInterval(currentStreamTimer);
+          currentStreamTimer = null;
+          return;
+        }
+        if (wordIndex < words.length) {
+          const partialText = words.slice(0, wordIndex + 1).join(" ");
+          wordIndex++;
+          dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({
+            questionText: partialText,
+            streamWordIndex: wordIndex,
+            readingStarted: true
+          }).catch(err => console.error("Question stream update failed:", err));
+        } else {
+          clearInterval(currentStreamTimer);
+          currentStreamTimer = null;
+          if (readingParts && readingParts.runKey === runKey) {
+            readingParts.streamFinished = true;
+            maybeOpenBuzzPeriod(runKey);
+          }
+        }
+      }, delayMs);
     } else {
-      select.value = 'on';
-      btn.textContent = '🔊 Voice: ON';
+      readingParts.streamFinished = true;
+    }
+
+    if (canHostSpeak) speakFullQuestionAudio(gameState, runKey);
+    maybeOpenBuzzPeriod(runKey);
+  }
+
+  function toggleArenaVoice() {
+    const select = document.getElementById("tts-select");
+    const btn = document.getElementById("arena-voice-toggle");
+    if (!select || !btn) return;
+    localTtsEnabled = !localTtsEnabled;
+    select.value = localTtsEnabled ? "on" : "off";
+    btn.textContent = localTtsEnabled ? "🔊 Voice: ON" : "🔇 Voice: OFF";
+    if (!localTtsEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    // The host controls the official reading clock. Muting on the host counts as
+    // completing its audio portion so the buzz window cannot become stuck.
+    if (!localTtsEnabled && currentUser.isHost && readingParts && !readingParts.speechFinished) {
+      readingParts.speechFinished = true;
+      maybeOpenBuzzPeriod(readingParts.runKey);
     }
   }
 
-  function computeLevenshteinDistance(a, b) {
-    const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        matrix[i][j] = b[i - 1] === a[j - 1] 
-          ? matrix[i - 1][j - 1] 
-          : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-      }
-    }
-    return matrix[b.length][a.length];
+  function normalizeAnswer(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^[\s"'“”‘’]*(the|a|an)\s+/i, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
   }
 
   function evaluateCloseAnswer(userGuess, targetAnswer) {
-    const cleanUser = userGuess.toLowerCase().trim().replace(/^(the|a|an)\s+/i, '');
-    const cleanTarget = targetAnswer.toLowerCase().trim().replace(/^(the|a|an)\s+/i, '');
-    if (!cleanUser) return false;
-    if (cleanUser === cleanTarget || cleanTarget.includes(cleanUser)) return true;
-    const maxAllowedErrors = cleanTarget.length > 8 ? 3 : (cleanTarget.length > 4 ? 2 : 1);
-    return computeLevenshteinDistance(cleanUser, cleanTarget) <= maxAllowedErrors;
+    const guess = normalizeAnswer(userGuess);
+    if (!guess) return false;
+    const answers = Array.isArray(targetAnswer) ? targetAnswer : [targetAnswer];
+    return answers.some(answer => {
+      const target = normalizeAnswer(answer);
+      return target && guess === target;
+    });
   }
 
   function generateRandomPin() {
     return Math.floor(1000 + Math.random() * 9000).toString();
   }
 
-  window.addEventListener('DOMContentLoaded', () => { syncTriviaDataset(); });
+  function clearLocalTimers() {
+    if (currentStreamTimer) clearInterval(currentStreamTimer);
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
+    currentStreamTimer = null;
+    clientTimerInterval = null;
+    activeClockKey = "";
+  }
+
+  window.addEventListener("DOMContentLoaded", () => {
+    const ttsSelect = document.getElementById("tts-select");
+    if (ttsSelect) localTtsEnabled = ttsSelect.value === "on";
+    syncTriviaDataset();
+  });
 
   function switchScreen(screenId) {
-    unlockAudioEngine();
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-    document.getElementById(`screen-${screenId}`).classList.add('active');
-    if (screenId === 'setup') document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    if (screenId === 'lobby') document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    if (screenId === 'arena') {
-      document.querySelectorAll('.tab-btn')[1].classList.add('active');
-      document.getElementById('nav-arena-tab').style.opacity = '1';
-      document.getElementById('nav-arena-tab').style.pointerEvents = 'auto';
+    if (screenId === "setup" && roomListenerRef) {
+      roomListenerRef.off();
+      roomListenerRef = null;
+      clearLocalTimers();
+      cancelLocalReading();
+      currentGameState = null;
+      lastStartedReadingRunKey = "";
+      lastSpokenRunKey = "";
+      activeBuzzPlayerId = null;
+    }
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(t => t.classList.remove("active"));
+    const target = document.getElementById(`screen-${screenId}`);
+    if (target) target.classList.add("active");
+    if (screenId === "setup" || screenId === "lobby") document.querySelectorAll(".tab-btn")[0].classList.add("active");
+    if (screenId === "arena") {
+      document.querySelectorAll(".tab-btn")[1].classList.add("active");
+      document.getElementById("nav-arena-tab").style.opacity = "1";
+      document.getElementById("nav-arena-tab").style.pointerEvents = "auto";
     }
   }
 
   function adjustFontSize(delta) {
     const root = document.documentElement;
-    const current = parseFloat(getComputedStyle(root).getPropertyValue('--q-font-size')) || 1.05;
-    root.style.setProperty('--q-font-size', Math.min(1.5, Math.max(0.85, current + delta)) + 'rem');
+    const current = parseFloat(getComputedStyle(root).getPropertyValue("--q-font-size")) || 1.05;
+    root.style.setProperty("--q-font-size", Math.min(1.5, Math.max(0.85, current + delta)) + "rem");
   }
 
-  function toggleContrast() { document.body.classList.toggle('high-contrast'); }
+  function toggleContrast() { document.body.classList.toggle("high-contrast"); }
 
-  function hostAndOpenRoom() {
+  async function hostAndOpenRoom() {
     unlockAudioEngine();
-    const hostName = document.getElementById('host-name-input').value.trim() || "Moderator";
-    const hostRole = document.getElementById('host-role-select').value;
-    activeDisplayMode = document.getElementById('display-mode-select').value;
-    activeAudioTarget = document.getElementById('audio-target-select').value;
+    const hostName = document.getElementById("host-name-input").value.trim() || "Moderator";
+    const hostRole = document.getElementById("host-role-select").value;
+    activeDisplayMode = document.getElementById("display-mode-select").value;
+    activeAudioTarget = document.getElementById("audio-target-select").value;
+    localTtsEnabled = document.getElementById("tts-select").value === "on" || activeDisplayMode === "voice-only";
+    document.getElementById("tts-select").value = localTtsEnabled ? "on" : "off";
 
-    if (activeDisplayMode === 'voice-only') {
-      document.getElementById('tts-select').value = 'on';
-    }
-
-    activeRoomPin = generateRandomPin();
-
-    let initialRoster = [];
-    if (hostRole === 'player-a') {
-      initialRoster.push({ name: hostName, team: 'A' });
-    } else if (hostRole === 'player-b') {
-      initialRoster.push({ name: hostName, team: 'B' });
-    }
-
-    currentUser = { 
-      name: hostName, 
-      team: hostRole === 'player-a' ? 'A' : (hostRole === 'player-b' ? 'B' : 'Host'), 
-      isHost: true 
+    currentUser = {
+      name: hostName,
+      team: hostRole === "player-a" ? "A" : (hostRole === "player-b" ? "B" : "Host"),
+      isHost: true,
+      clientId: makeClientId()
     };
-
+    const initialRoster = currentUser.team === "Host" ? [] : [{ name: hostName, team: currentUser.team, playerId: currentUser.clientId }];
     const initialRoomState = {
       host: hostName,
       displayMode: activeDisplayMode,
       audioTarget: activeAudioTarget,
       roster: initialRoster,
       gameState: {
-        status: "LOBBY",
-        scoreA: 0,
-        scoreB: 0,
-        questionIndex: 0,
-        questionText: "Waiting for host to start match...",
-        fullQuestion: "",
-        answerline: "",
-        buzzPlayer: null,
-        isInterrupt: false,
-        attemptedTeams: {}
+        status: "LOBBY", scoreA: 0, scoreB: 0, questionIndex: 0,
+        questionText: "Waiting for host to start match...", fullQuestion: "", answerline: "",
+        acceptedAnswers: [], buzzPlayer: null, buzzPlayerId: null, isInterrupt: false,
+        attemptedTeams: {}, usedQuestionKeys: []
       }
     };
 
-    dbRef.ref('rooms/' + activeRoomPin).set(initialRoomState, () => {
-      document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
+    try {
+      let created = false;
+      for (let attempt = 0; attempt < 8 && !created; attempt++) {
+        activeRoomPin = generateRandomPin();
+        const result = await dbRef.ref("rooms/" + activeRoomPin).transaction(existing => existing === null ? initialRoomState : undefined, undefined, false);
+        created = result.committed;
+      }
+      if (!created) throw new Error("Could not reserve a unique room PIN. Try again.");
+      document.getElementById("lobby-room-code-tag").textContent = activeRoomPin;
       setupRoomRealtimeListener(activeRoomPin);
-      switchScreen('lobby');
-    });
+      switchScreen("lobby");
+    } catch (err) {
+      console.error(err);
+      alert("Could not create the room. Check your Firebase connection and database rules. " + err.message);
+    }
   }
 
-  function verifyRoomPinAndPromptName() {
+  async function verifyRoomPinAndPromptName() {
     unlockAudioEngine();
-    const pin = document.getElementById('join-pin-input').value.trim();
-    if (!pin || pin.length !== 4) {
+    const pin = document.getElementById("join-pin-input").value.trim();
+    if (!/^\d{4}$/.test(pin)) {
       alert("Please enter a valid 4-digit room PIN.");
       return;
     }
-
-    dbRef.ref('rooms/' + pin).once('value').then((snapshot) => {
+    try {
+      const snapshot = await dbRef.ref("rooms/" + pin).once("value");
       const roomData = snapshot.val();
       if (!roomData) {
         alert(`Room PIN "${pin}" does not exist.`);
@@ -787,383 +960,515 @@
       activeRoomPin = pin;
       activeDisplayMode = roomData.displayMode || "reading-stream";
       activeAudioTarget = roomData.audioTarget || "all-devices";
-      document.getElementById('modal-pin-display').textContent = activeRoomPin;
-      switchScreen('join-name');
-    });
+      document.getElementById("modal-pin-display").textContent = activeRoomPin;
+      switchScreen("join-name");
+    } catch (err) {
+      console.error(err);
+      alert("Could not check that room. Check your internet connection and Firebase database rules.");
+    }
   }
 
-  function finalizeJoinRoom() {
+  async function finalizeJoinRoom() {
     unlockAudioEngine();
-    const playerName = document.getElementById('modal-competitor-name').value.trim() || "Competitor";
-    const team = document.getElementById('modal-team-select').value;
-    currentUser = { name: playerName, team: team, isHost: false };
-
-    dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-      const roomData = snapshot.val() || {};
-      let roster = roomData.roster || [];
-      if (roster.filter(p => p.team === team).length >= 5) {
-        alert(`Team ${team} is full (5 players max)!`);
+    const playerName = document.getElementById("modal-competitor-name").value.trim() || "Competitor";
+    const team = document.getElementById("modal-team-select").value;
+    const playerId = makeClientId();
+    const rosterRef = dbRef.ref("rooms/" + activeRoomPin + "/roster");
+    try {
+      const result = await rosterRef.transaction(rosterValue => {
+        const roster = Array.isArray(rosterValue) ? rosterValue : [];
+        if (roster.filter(p => p && p.team === team).length >= 5) return;
+        roster.push({ name: playerName, team, playerId });
+        return roster;
+      }, undefined, false);
+      if (!result.committed) {
+        alert(`Team ${team} is full (5 players maximum), or the room changed. Please try again.`);
         return;
       }
-      roster.push({ name: playerName, team: team });
-      dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster, () => {
-        setupRoomRealtimeListener(activeRoomPin);
-        document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
-        switchScreen('lobby');
-      });
-    });
+      currentUser = { name: playerName, team, isHost: false, clientId: playerId };
+      const roomSnapshot = await dbRef.ref("rooms/" + activeRoomPin).once("value");
+      const roomData = roomSnapshot.val() || {};
+      activeDisplayMode = roomData.displayMode || "reading-stream";
+      activeAudioTarget = roomData.audioTarget || "all-devices";
+      document.getElementById("lobby-room-code-tag").textContent = activeRoomPin;
+      setupRoomRealtimeListener(activeRoomPin);
+      switchScreen("lobby");
+    } catch (err) {
+      console.error(err);
+      alert("Could not join the room. Check your Firebase connection and database rules.");
+    }
   }
 
-  function addRosterMember() {
+  async function addRosterMember() {
     if (!currentUser.isHost) return;
-    const input = document.getElementById('lobby-new-name');
+    const input = document.getElementById("lobby-new-name");
     const name = input.value.trim();
-    const team = document.getElementById('lobby-new-team').value;
+    const team = document.getElementById("lobby-new-team").value;
     if (!name) return;
-
-    dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-      const roomData = snapshot.val() || {};
-      let roster = roomData.roster || [];
-      if (roster.filter(p => p.team === team).length >= 5) {
-        alert(`Team ${team} is full!`);
+    try {
+      const result = await dbRef.ref("rooms/" + activeRoomPin + "/roster").transaction(rosterValue => {
+        const roster = Array.isArray(rosterValue) ? rosterValue : [];
+        if (roster.filter(p => p && p.team === team).length >= 5) return;
+        roster.push({ name, team, playerId: "manual_" + makeClientId() });
+        return roster;
+      }, undefined, false);
+      if (!result.committed) {
+        alert(`Team ${team} is full (5 players maximum).`);
         return;
       }
-      roster.push({ name, team });
-      dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster, () => { input.value = ""; });
-    });
+      input.value = "";
+    } catch (err) {
+      console.error(err);
+      alert("Could not add that roster member.");
+    }
   }
 
-  function populateBotRoster() {
+  async function populateBotRoster() {
     if (!currentUser.isHost) return;
-    dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-      const roomData = snapshot.val() || {};
-      let roster = roomData.roster || [];
-      ['A', 'B'].forEach(team => {
-        while (roster.filter(p => p.team === team).length < 5) {
-          roster.push({ name: `Bot ${roster.filter(p => p.team === team).length + 1} (${team})`, team });
-        }
-      });
-      dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster);
-    });
+    try {
+      const result = await dbRef.ref("rooms/" + activeRoomPin + "/roster").transaction(rosterValue => {
+        const roster = Array.isArray(rosterValue) ? rosterValue.slice() : [];
+        ["A", "B"].forEach(team => {
+          while (roster.filter(p => p && p.team === team).length < 5) {
+            const count = roster.filter(p => p && p.team === team).length + 1;
+            roster.push({ name: `Bot ${count} (${team})`, team, playerId: `bot_${team}_${count}` });
+          }
+        });
+        return roster;
+      }, undefined, false);
+      if (!result.committed) alert("Could not populate the bot roster.");
+    } catch (err) {
+      console.error(err);
+      alert("Could not populate the bot roster.");
+    }
   }
 
   function launchChampionshipMatch() {
     if (!currentUser.isHost) return;
-    isReadingFinished = false;
-    dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-      status: "READING",
-      questionIndex: 1,
-      scoreA: 0,
-      scoreB: 0
-    }, () => {
-      loadNextQuestionCloud();
+    const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+    stateRef.transaction(gs => {
+      if (!gs || gs.status !== "LOBBY") return;
+      gs.status = "LOADING";
+      gs.scoreA = 0;
+      gs.scoreB = 0;
+      gs.questionIndex = 0;
+      gs.usedQuestionKeys = [];
+      gs.attemptedTeams = {};
+      return gs;
+    }, (error, committed) => {
+      if (error) {
+        console.error(error);
+        alert("Could not start the match.");
+      } else if (committed) {
+        loadNextQuestionCloud();
+      }
+    }, false);
+  }
+
+  function appendTextItem(parent, tagName, text, className) {
+    const element = document.createElement(tagName);
+    element.textContent = text;
+    if (className) element.className = className;
+    parent.appendChild(element);
+    return element;
+  }
+
+  function renderRoster(roster, gameState) {
+    const teamA = roster.filter(p => p && p.team === "A");
+    const teamB = roster.filter(p => p && p.team === "B");
+    document.getElementById("count-a").textContent = teamA.length;
+    document.getElementById("count-b").textContent = teamB.length;
+    const listA = document.getElementById("list-a");
+    const listB = document.getElementById("list-b");
+    listA.replaceChildren();
+    listB.replaceChildren();
+    teamA.forEach(p => appendTextItem(listA, "li", "• " + p.name));
+    teamB.forEach(p => appendTextItem(listB, "li", "• " + p.name));
+
+    const grid = document.getElementById("arena-roster-grid");
+    grid.replaceChildren();
+    roster.forEach(p => {
+      if (!p) return;
+      const podium = document.createElement("div");
+      podium.className = "desk-podium " + (p.team === "A" ? "team-a" : "team-b");
+      const name = document.createElement("strong");
+      name.style.cssText = "display:block;font-size:0.65rem;overflow:hidden;text-overflow:ellipsis;";
+      name.textContent = p.name;
+      podium.appendChild(name);
+      const dot = document.createElement("div");
+      dot.style.cssText = "width:6px;height:6px;border-radius:50%;margin:2px auto 0 auto;";
+      dot.style.background = gameState && gameState.buzzPlayerId && gameState.buzzPlayerId === p.playerId ? "var(--team-red-base)" : "#334155";
+      podium.appendChild(dot);
+      grid.appendChild(podium);
     });
+  }
+
+  function updateArenaControls(gameState) {
+    const isParticipant = currentUser.team === "A" || currentUser.team === "B";
+    const hasAttempted = Boolean(gameState.attemptedTeams && gameState.attemptedTeams[currentUser.team]);
+    const canBuzz = isParticipant && (gameState.status === "READING" || gameState.status === "BUZZ_OPEN") &&
+      gameState.readingStarted !== false && !hasAttempted;
+    const buzzButton = document.getElementById("buzz-in-btn");
+    buzzButton.disabled = !canBuzz;
+    if (gameState.status === "BUZZED") buzzButton.textContent = "🔔 BUZZ TAKEN";
+    else if (hasAttempted) buzzButton.textContent = "BUZZ USED BY YOUR TEAM";
+    else buzzButton.textContent = "🔔 BUZZ IN ([SPACE])";
+
+    const isMyBuzz = gameState.status === "BUZZED" && gameState.buzzPlayerId === currentUser.clientId;
+    activeBuzzPlayerId = gameState.buzzPlayerId || null;
+    const answerContainer = document.getElementById("answer-input-container");
+    answerContainer.classList.toggle("hidden", !isMyBuzz);
+    if (isMyBuzz) {
+      const answerInput = document.getElementById("competitor-answer-input");
+      if (document.activeElement !== answerInput) answerInput.focus();
+    }
+
+    const pauseButton = document.querySelector(".host-only-control[onclick=\"toggleMatchPause()\"]");
+    if (pauseButton) pauseButton.textContent = gameState.status === "PAUSED" ? "▶️ Resume" : "⏸️ Pause";
+    const nextButton = document.querySelector(".host-only-control[onclick=\"loadNextQuestionCloud()\"]");
+    if (nextButton) nextButton.disabled = gameState.status !== "ENDED";
+  }
+
+  function startLocalClock(gameState) {
+    const clockType = gameState.status === "BUZZED" ? "answer" : (gameState.status === "BUZZ_OPEN" ? "buzz" : "none");
+    const deadline = clockType === "answer" ? Number(gameState.answerDeadline || 0) : Number(gameState.buzzDeadline || 0);
+    const key = clockType === "none" ? "none" : `${gameState.questionId}:${clockType}:${deadline}`;
+    if (key === activeClockKey) return;
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
+    clientTimerInterval = null;
+    activeClockKey = key;
+    if (clockType === "none" || !deadline) {
+      document.getElementById("question-timer-bar").style.width = "100%";
+      return;
+    }
+    const duration = clockType === "answer" ? 20000 : 10000;
+    const updateClock = () => {
+      const remaining = Math.max(0, deadline - Date.now());
+      document.getElementById("question-timer-bar").style.width = Math.max(0, (remaining / duration) * 100) + "%";
+      if (remaining <= 0) {
+        clearInterval(clientTimerInterval);
+        clientTimerInterval = null;
+        if (currentUser.isHost) {
+          if (clockType === "answer") handleAnswerTimeout();
+          else handleBuzzWindowTimeout(gameState.questionId, deadline);
+        }
+      }
+    };
+    updateClock();
+    clientTimerInterval = setInterval(updateClock, 100);
+  }
+
+  function handleBuzzWindowTimeout(questionId, deadline) {
+    dbRef.ref("rooms/" + activeRoomPin + "/gameState").transaction(gs => {
+      if (!gs || gs.status !== "BUZZ_OPEN" || gs.questionId !== questionId) return;
+      if (Number(gs.buzzDeadline || 0) > Date.now() || Number(gs.buzzDeadline || 0) !== deadline) return;
+      gs.status = "ENDED";
+      gs.reason = "⏰ Buzz period expired! Correct Answer:";
+      gs.buzzDeadline = null;
+      return gs;
+    }, err => { if (err) console.error("Buzz timeout update failed:", err); }, false);
+  }
+
+  function handleAnswerTimeout() {
+    if (isResolvingTimeout) return;
+    isResolvingTimeout = true;
+    resolveCurrentAnswer("", true, true).finally(() => { isResolvingTimeout = false; });
   }
 
   function setupRoomRealtimeListener(pin) {
     if (roomListenerRef) roomListenerRef.off();
-    roomListenerRef = dbRef.ref('rooms/' + pin);
-
-    roomListenerRef.on('value', (snapshot) => {
+    roomListenerRef = dbRef.ref("rooms/" + pin);
+    roomListenerRef.on("value", snapshot => {
       const data = snapshot.val();
       if (!data) return;
-
       activeDisplayMode = data.displayMode || "reading-stream";
       activeAudioTarget = data.audioTarget || "all-devices";
+      const roster = Array.isArray(data.roster) ? data.roster : [];
+      const gameState = data.gameState || {};
+      const previousStatus = currentGameState && currentGameState.status;
+      currentGameState = gameState;
+      renderRoster(roster, gameState);
 
-      const roster = data.roster || [];
-      const teamA = roster.filter(p => p.team === 'A');
-      const teamB = roster.filter(p => p.team === 'B');
-      document.getElementById('count-a').textContent = teamA.length;
-      document.getElementById('count-b').textContent = teamB.length;
-      document.getElementById('list-a').innerHTML = teamA.map(p => `<li>• ${p.name}</li>`).join('');
-      document.getElementById('list-b').innerHTML = teamB.map(p => `<li>• ${p.name}</li>`).join('');
+      document.getElementById("score-a").textContent = gameState.scoreA || 0;
+      document.getElementById("score-b").textContent = gameState.scoreB || 0;
+      document.getElementById("rotation-status-badge").textContent = `Q ${Math.min(gameState.questionIndex || 1, 16)} / 16`;
+      const qBox = document.getElementById("active-question-box");
+      if (activeDisplayMode === "voice-only") qBox.textContent = "[Audio Mode: Text hidden]";
+      else qBox.textContent = gameState.questionText || "";
 
-      const grid = document.getElementById('arena-roster-grid');
-      if (grid) {
-        grid.innerHTML = roster.map(p => `
-          <div class="desk-podium ${p.team === 'A' ? 'team-a' : 'team-b'}">
-            <strong style="display:block; font-size:0.65rem; overflow:hidden; text-overflow:ellipsis;">${p.name}</strong>
-            <div style="width:6px; height:6px; border-radius:50%; background:${data.gameState && data.gameState.buzzPlayer === p.name ? 'var(--team-red-base)' : '#334155'}; margin:2px auto 0 auto;"></div>
-          </div>
-        `).join('');
+      const statusText = document.getElementById("status-message-text");
+      if (gameState.status === "READING") statusText.textContent = gameState.isInterrupt ? "Question resumed. [Space] Buzz" : "Question being read. [Space] Buzz";
+      else if (gameState.status === "BUZZ_OPEN") statusText.textContent = "Buzz period open! [Space] Buzz";
+      else if (gameState.status === "BUZZED") statusText.textContent = `🚨 ${gameState.buzzPlayer || "A competitor"} buzzed!${gameState.isInterrupt ? " (INTERRUPTION)" : ""}`;
+      else if (gameState.status === "PAUSED") statusText.textContent = "⏸️ Match paused by host.";
+      else if (gameState.status === "MATCH_COMPLETE") statusText.textContent = "🏆 Match complete. Final scores recorded.";
+      else if (gameState.status === "ENDED") statusText.textContent = gameState.reason || "Question complete. Host may advance.";
+      else statusText.textContent = "Waiting for host to start the match...";
+
+      if (gameState.status === "ENDED" || gameState.status === "MATCH_COMPLETE") {
+        document.getElementById("answerline-panel").classList.remove("hidden");
+        document.getElementById("resolved-answerline-text").textContent = gameState.answerline || "";
+        document.getElementById("answerline-heading-text").textContent = gameState.reason || "Official Answerline";
+      } else {
+        document.getElementById("answerline-panel").classList.add("hidden");
       }
 
-      const gState = data.gameState;
-      if (gState) {
-        document.getElementById('score-a').textContent = gState.scoreA || 0;
-        document.getElementById('score-b').textContent = gState.scoreB || 0;
-        document.getElementById('rotation-status-badge').textContent = `Q ${gState.questionIndex || 1} / 16`;
-        
-        const qBox = document.getElementById('active-question-box');
-        if (activeDisplayMode === 'voice-only') {
-          qBox.innerHTML = "<em>[Audio Mode: Text hidden]</em>";
-        } else {
-          qBox.innerHTML = gState.questionText || "";
+      if (gameState.status === "READING") {
+        if (previousStatus === "BUZZED") {
+          lastSpokenRunKey = "";
+          if (currentUser.isHost) lastStartedReadingRunKey = "";
         }
-
-        if (gState.status === "READING") {
-          document.getElementById('buzz-in-btn').disabled = currentUser.isHost && currentUser.team === 'Host';
-          
-          if (gState.fullQuestion) {
-            speakFullQuestionAudio(gState.fullQuestion);
-          }
-        } else {
-          document.getElementById('buzz-in-btn').disabled = true;
-        }
-
-        if (gState.buzzPlayer) {
-          const interruptNotice = gState.isInterrupt ? " (INTERRUPTION)" : "";
-          document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed!${interruptNotice}`;
-        }
-
-        if (gState.status === "ENDED") {
-          document.getElementById('answerline-panel').classList.remove('hidden');
-          document.getElementById('resolved-answerline-text').textContent = gState.answerline || "";
-          document.getElementById('answerline-heading-text').textContent = gState.reason || "Official Answerline";
-        } else {
-          document.getElementById('answerline-panel').classList.add('hidden');
-        }
+        const runKey = gameState.questionId + ":" + (gameState.resumeToken || 0);
+        if (currentUser.isHost && runKey !== lastStartedReadingRunKey) startQuestionReading(gameState);
+        speakFullQuestionAudio(gameState, runKey);
+      } else {
+        if (previousStatus === "READING" || gameState.status === "BUZZED" || gameState.status === "PAUSED") cancelLocalReading();
+        if (gameState.status !== "PAUSED") readingParts = null;
       }
 
-      document.getElementById('personal-role-tag').textContent = currentUser.isHost && currentUser.team === 'Host' ? "MODERATOR" : `TEAM ${currentUser.team}`;
+      updateArenaControls(gameState);
+      startLocalClock(gameState);
+      document.getElementById("personal-role-tag").textContent = currentUser.isHost && currentUser.team === "Host" ? "MODERATOR" : `TEAM ${currentUser.team}`;
 
       if (currentUser.isHost) {
-        document.querySelectorAll('.host-only-control').forEach(el => el.classList.remove('hidden'));
-        document.getElementById('host-roster-controls').style.display = 'grid';
-        document.getElementById('start-match-btn').style.display = 'block';
+        document.querySelectorAll(".host-only-control").forEach(el => el.classList.remove("hidden"));
+        document.getElementById("host-roster-controls").style.display = "grid";
+        document.getElementById("start-match-btn").style.display = "block";
       } else {
-        document.querySelectorAll('.host-only-control').forEach(el => el.classList.add('hidden'));
-        document.getElementById('host-roster-controls').style.display = 'none';
-        document.getElementById('start-match-btn').style.display = 'none';
+        document.querySelectorAll(".host-only-control").forEach(el => el.classList.add("hidden"));
+        document.getElementById("host-roster-controls").style.display = "none";
+        document.getElementById("start-match-btn").style.display = "none";
       }
-
-      if (data.gameState && data.gameState.status !== "LOBBY" && !document.getElementById('screen-arena').classList.contains('active')) {
-        switchScreen('arena');
+      if (gameState.status && gameState.status !== "LOBBY" && gameState.status !== "LOADING" && !document.getElementById("screen-arena").classList.contains("active")) {
+        switchScreen("arena");
       }
+    }, error => {
+      console.error("Room listener failed:", error);
+      alert("Lost access to this room. Check your Firebase connection and database rules.");
     });
   }
 
-  function loadNextQuestionCloud() {
-    if (!currentUser.isHost) return;
-    
-    dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then((snap) => {
-      const currentGs = snap.val() || {};
-      const nextIndex = (currentGs.questionIndex || 0);
-
+  async function loadNextQuestionCloud() {
+    if (!currentUser.isHost || !activeRoomPin) return;
+    try {
+      const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+      const snapshot = await stateRef.once("value");
+      const current = snapshot.val() || {};
+      if (current.status !== "LOBBY" && current.status !== "LOADING" && current.status !== "ENDED") return;
+      const nextIndex = (Number(current.questionIndex) || 0) + 1;
       if (nextIndex > 16) {
-        alert("Match complete! All 16 KSHSAA round questions have been read.");
-        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ status: "ENDED", questionText: "Match Complete. Final Scores Recorded." });
+        await stateRef.update({ status: "MATCH_COMPLETE", reason: "🏆 All 16 questions complete. Final Scores:", buzzPlayer: null, buzzPlayerId: null });
         return;
       }
 
-      let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
-      const q = pool[Math.floor(Math.random() * pool.length)];
-      const fullText = q.text.replace(/\(\*\)/g, '');
+      const pool = triviaQADataSet.length ? triviaQADataSet : fallbackQuestions;
+      const used = Array.isArray(current.usedQuestionKeys) ? current.usedQuestionKeys : [];
+      let available = pool.filter(q => !used.includes(String(q.text).toLowerCase()));
+      if (!available.length) available = pool;
+      const question = available[Math.floor(Math.random() * available.length)];
+      const fullText = String(question.text || "Question").replace(/\(\*\)/g, "").trim();
+      const acceptedAnswers = Array.isArray(question.acceptedAnswers) && question.acceptedAnswers.length ? question.acceptedAnswers : [question.answer || "Unknown"];
+      const voiceEnabled = document.getElementById("tts-select").value === "on";
+      const readingStarted = activeDisplayMode !== "reading-stream";
+      const questionId = makeClientId();
+      const newState = {
+        status: "READING",
+        questionIndex: nextIndex,
+        scoreA: Number(current.scoreA) || 0,
+        scoreB: Number(current.scoreB) || 0,
+        questionId,
+        questionText: activeDisplayMode === "reading-stream" ? "" : fullText,
+        fullQuestion: fullText,
+        answerline: acceptedAnswers[0],
+        acceptedAnswers,
+        buzzPlayer: null,
+        buzzPlayerId: null,
+        buzzTeam: null,
+        isInterrupt: false,
+        attemptedTeams: {},
+        usedQuestionKeys: [...used, String(question.text).toLowerCase()],
+        readingStarted,
+        readingFinished: false,
+        streamWordIndex: 0,
+        resumeToken: 0,
+        voiceEnabled,
+        buzzDeadline: null,
+        answerDeadline: null,
+        reason: ""
+      };
+      const result = await stateRef.transaction(gs => {
+        if (!gs || (gs.status !== "LOBBY" && gs.status !== "LOADING" && gs.status !== "ENDED")) return;
+        if ((Number(gs.questionIndex) || 0) + 1 !== nextIndex) return;
+        return newState;
+      }, undefined, false);
+      if (!result.committed) return;
+      usedQuestionKeys = newState.usedQuestionKeys;
+    } catch (err) {
+      console.error("Could not load next question:", err);
+      alert("Could not load the next question. Check Firebase connectivity and try again.");
+    }
+  }
 
-      if (currentStreamTimer) clearInterval(currentStreamTimer);
-      if (clientTimerInterval) clearInterval(clientTimerInterval);
-      lastSpokenFullText = "";
-      isReadingFinished = false;
-
-      if (activeDisplayMode === 'text-only' || activeDisplayMode === 'voice-only') {
-        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-          status: "READING",
-          questionIndex: nextIndex,
-          questionText: fullText,
-          fullQuestion: fullText,
-          answerline: q.answer,
-          buzzPlayer: null,
-          isInterrupt: false,
-          attemptedTeams: {}
-        });
-        isReadingFinished = true;
-        startBuzzTimer();
+  async function triggerBuzzer() {
+    if (!activeRoomPin || (currentUser.team !== "A" && currentUser.team !== "B")) return;
+    const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+    try {
+      const result = await stateRef.transaction(gs => {
+        if (!gs || (gs.status !== "READING" && gs.status !== "BUZZ_OPEN")) return;
+        const now = Date.now();
+        if (gs.readingStarted === false) return;
+        if (gs.status === "BUZZ_OPEN" && Number(gs.buzzDeadline || 0) <= now) return;
+        const attempted = gs.attemptedTeams || {};
+        if (attempted[currentUser.team]) return;
+        const wasInterrupt = gs.status === "READING";
+        gs.status = "BUZZED";
+        gs.buzzPlayer = currentUser.name;
+        gs.buzzPlayerId = currentUser.clientId;
+        gs.buzzTeam = currentUser.team;
+        gs.buzzAt = now;
+        gs.isInterrupt = wasInterrupt;
+        gs.answerDeadline = now + 20000;
+        gs.buzzDeadline = null;
+        return gs;
+      }, undefined, false);
+      if (result.committed) {
+        playSoundEffect("buzz");
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       } else {
-        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-          status: "READING",
-          questionIndex: nextIndex,
-          questionText: "",
-          fullQuestion: fullText,
-          answerline: q.answer,
-          buzzPlayer: null,
-          isInterrupt: false,
-          attemptedTeams: {}
-        });
+        const latest = result.snapshot && result.snapshot.val();
+        if (latest && latest.attemptedTeams && latest.attemptedTeams[currentUser.team]) {
+          document.getElementById("status-message-text").textContent = "Your team has already used its answer on this question.";
+        }
+      }
+    } catch (err) {
+      console.error("Buzzer transaction failed:", err);
+      document.getElementById("status-message-text").textContent = "Buzz failed to send. Check your connection and try again.";
+    }
+  }
 
-        const words = fullText.split(' ');
-        let currentWordIndex = 0;
-        const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
-        const delayMs = Math.max(70, Math.floor(60000 / (wpm * 1.2)));
-
-        currentStreamTimer = setInterval(() => {
-          if (currentWordIndex < words.length) {
-            const partialText = words.slice(0, currentWordIndex + 1).join(' ');
-            dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ questionText: partialText });
-            currentWordIndex++;
+  async function resolveCurrentAnswer(guess, isTimeout = false, fromHostTimeout = false) {
+    if (!activeRoomPin) return false;
+    const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+    let outcome = null;
+    try {
+      const result = await stateRef.transaction(gs => {
+        if (!gs || gs.status !== "BUZZED") return;
+        if (!fromHostTimeout && gs.buzzPlayerId !== currentUser.clientId) return;
+        if (fromHostTimeout && Number(gs.answerDeadline || 0) > Date.now()) return;
+        if (!fromHostTimeout && Number(gs.answerDeadline || 0) <= Date.now()) return;
+        const correct = !isTimeout && evaluateCloseAnswer(guess, gs.acceptedAnswers || [gs.answerline]);
+        const team = gs.buzzTeam || currentUser.team;
+        const attemptedTeams = { ...(gs.attemptedTeams || {}) };
+        if (team === "A" || team === "B") attemptedTeams[team] = true;
+        let scoreA = Number(gs.scoreA) || 0;
+        let scoreB = Number(gs.scoreB) || 0;
+        if (correct) {
+          if (team === "A") scoreA += 10;
+          if (team === "B") scoreB += 10;
+          outcome = "correct";
+          gs.status = "ENDED";
+          gs.reason = "✅ Correct Answer:";
+        } else {
+          if (gs.isInterrupt) {
+            if (team === "A") scoreA -= 5;
+            if (team === "B") scoreB -= 5;
+          }
+          outcome = "incorrect";
+          const bothAttempted = Boolean(attemptedTeams.A && attemptedTeams.B);
+          if (bothAttempted) {
+            gs.status = "ENDED";
+            gs.reason = "❌ Both teams answered incorrectly. Correct Answer:";
+          } else if (gs.isInterrupt) {
+            // Restart the read after an interrupted incorrect answer. The team
+            // that already tried is locked out; the other team can still buzz.
+            gs.status = "READING";
+            gs.questionText = "";
+            gs.readingStarted = activeDisplayMode !== "reading-stream";
+            gs.readingFinished = false;
+            gs.resumeToken = (Number(gs.resumeToken) || 0) + 1;
+            gs.isInterrupt = true;
           } else {
-            clearInterval(currentStreamTimer);
-            isReadingFinished = true;
-            if (document.getElementById('tts-select').value === 'off' || !('speechSynthesis' in window)) {
-              startBuzzTimer();
-            }
+            gs.status = "BUZZ_OPEN";
+            gs.readingFinished = true;
+            gs.buzzDeadline = Date.now() + 10000;
+            gs.isInterrupt = false;
           }
-        }, delayMs);
-      }
-    });
-  }
-
-  function startBuzzTimer() {
-    let timeLeft = 10;
-    const bar = document.getElementById('question-timer-bar');
-    if (clientTimerInterval) clearInterval(clientTimerInterval);
-
-    clientTimerInterval = setInterval(() => {
-      timeLeft -= 0.1;
-      if (bar) bar.style.width = Math.max(0, (timeLeft / 10) * 100) + '%';
-      if (timeLeft <= 0) {
-        clearInterval(clientTimerInterval);
-        dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snap => {
-          const gs = snap.val() || {};
-          if (gs.status === "READING") {
-            playSoundEffect('neg');
-            dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-              status: "ENDED",
-              reason: "⏰ Time Expired! Correct Answer:",
-              questionIndex: (gs.questionIndex || 1) + 1
-            });
-          }
-        });
-      }
-    }, 100);
-  }
-
-  function toggleMatchPause() {
-    if (!currentUser.isHost) return;
-    if (currentStreamTimer) clearInterval(currentStreamTimer);
-    if (clientTimerInterval) clearInterval(clientTimerInterval);
-    if ('speechSynthesis' in window) window.speechSynthesis.pause();
-  }
-
-  function triggerBuzzer() {
-    if (currentUser.isHost && currentUser.team === 'Host') return;
-    if (currentStreamTimer) clearInterval(currentStreamTimer);
-    if (clientTimerInterval) clearInterval(clientTimerInterval);
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-
-    const isInterrupt = !isReadingFinished;
-
-    playSoundEffect('buzz');
-    dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-      status: "BUZZED",
-      buzzPlayer: currentUser.name,
-      isInterrupt: isInterrupt
-    });
-    
-    document.getElementById('answer-input-container').classList.remove('hidden');
-    document.getElementById('competitor-answer-input').value = "";
-    document.getElementById('competitor-answer-input').focus();
-
-    let answerTimeLeft = 20;
-    const bar = document.getElementById('question-timer-bar');
-    if (clientTimerInterval) clearInterval(clientTimerInterval);
-    
-    clientTimerInterval = setInterval(() => {
-      answerTimeLeft -= 0.1;
-      if (bar) bar.style.width = Math.max(0, (answerTimeLeft / 20) * 100) + '%';
-      if (answerTimeLeft <= 0) {
-        clearInterval(clientTimerInterval);
-        submitCompetitorAnswer(true);
-      }
-    }, 100);
+          gs.reason = gs.status === "ENDED" ? gs.reason : "Incorrect answer. The other team may buzz.";
+        }
+        gs.scoreA = scoreA;
+        gs.scoreB = scoreB;
+        gs.attemptedTeams = attemptedTeams;
+        gs.buzzPlayer = null;
+        gs.buzzPlayerId = null;
+        gs.buzzTeam = null;
+        gs.answerDeadline = null;
+        return gs;
+      }, undefined, false);
+      if (result.committed && outcome) playSoundEffect(outcome === "correct" ? "correct" : "neg");
+      return result.committed;
+    } catch (err) {
+      console.error("Could not submit answer:", err);
+      alert("Your answer could not be submitted. Check your connection.");
+      return false;
+    }
   }
 
   function submitCompetitorAnswer(isTimeout = false) {
-    if (clientTimerInterval) clearInterval(clientTimerInterval);
-    const guess = isTimeout ? "" : document.getElementById('competitor-answer-input').value;
-    document.getElementById('answer-input-container').classList.add('hidden');
-
-    dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snapshot => {
-      const gState = snapshot.val() || {};
-      const isCorrect = !isTimeout && evaluateCloseAnswer(guess, gState.answerline || "");
-
-      let deltaA = gState.scoreA || 0;
-      let deltaB = gState.scoreB || 0;
-      let attemptedTeams = gState.attemptedTeams || {};
-      attemptedTeams[currentUser.team] = true;
-
-      if (currentUser.team === 'A') {
-        if (isCorrect) {
-          deltaA += 10;
-        } else {
-          deltaA += gState.isInterrupt ? -5 : 0;
-        }
-      }
-
-      if (currentUser.team === 'B') {
-        if (isCorrect) {
-          deltaB += 10;
-        } else {
-          deltaB += gState.isInterrupt ? -5 : 0;
-        }
-      }
-
-      if (isCorrect) {
-        playSoundEffect('correct');
-        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-          status: "ENDED",
-          scoreA: deltaA,
-          scoreB: deltaB,
-          reason: "✅ Correct Answer:",
-          questionIndex: (gState.questionIndex || 1) + 1
-        });
-      } else {
-        playSoundEffect('neg');
-        if (attemptedTeams['A'] && attemptedTeams['B']) {
-          dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-            status: "ENDED",
-            scoreA: deltaA,
-            scoreB: deltaB,
-            reason: "❌ Both Teams Incorrect! Correct Answer:",
-            questionIndex: (gState.questionIndex || 1) + 1
-          });
-        } else {
-          // Restart reading / let other team buzz in
-          const fullText = gState.fullQuestion || "";
-          dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-            status: "READING",
-            scoreA: deltaA,
-            scoreB: deltaB,
-            questionText: fullText,
-            buzzPlayer: null,
-            attemptedTeams: attemptedTeams
-          });
-          isReadingFinished = true;
-          startBuzzTimer();
-        }
-      }
-    });
+    if (!currentGameState || currentGameState.status !== "BUZZED" || currentGameState.buzzPlayerId !== currentUser.clientId) return;
+    const guess = isTimeout ? "" : document.getElementById("competitor-answer-input").value;
+    document.getElementById("answer-input-container").classList.add("hidden");
+    resolveCurrentAnswer(guess, isTimeout, false);
   }
 
-  window.addEventListener('keydown', (e) => {
-    if (!document.getElementById('screen-arena').classList.contains('active')) return;
-    const isTyping = document.activeElement.tagName === 'INPUT';
-    if (e.key === 'Enter' && isTyping) {
-      e.preventDefault();
-      submitCompetitorAnswer();
+  function toggleMatchPause() {
+    if (!currentUser.isHost || !activeRoomPin) return;
+    const stateRef = dbRef.ref("rooms/" + activeRoomPin + "/gameState");
+    stateRef.transaction(gs => {
+      if (!gs) return;
+      if (gs.status === "PAUSED") {
+        const pauseLength = Math.max(0, Date.now() - Number(gs.pausedAt || Date.now()));
+        const restoreStatus = gs.pausedFromStatus || "BUZZ_OPEN";
+        if (restoreStatus === "BUZZ_OPEN" && gs.buzzDeadline) gs.buzzDeadline = Number(gs.buzzDeadline) + pauseLength;
+        if (restoreStatus === "BUZZED" && gs.answerDeadline) gs.answerDeadline = Number(gs.answerDeadline) + pauseLength;
+        gs.status = restoreStatus;
+        delete gs.pausedAt;
+        delete gs.pausedFromStatus;
+        if (restoreStatus === "READING") {
+          gs.questionText = "";
+          gs.readingStarted = activeDisplayMode !== "reading-stream";
+          gs.readingFinished = false;
+          gs.resumeToken = (Number(gs.resumeToken) || 0) + 1;
+        }
+        return gs;
+      }
+      if (!["READING", "BUZZ_OPEN", "BUZZED"].includes(gs.status)) return;
+      gs.pausedFromStatus = gs.status;
+      gs.pausedAt = Date.now();
+      gs.status = "PAUSED";
+      return gs;
+    }, err => { if (err) console.error("Pause/resume failed:", err); }, false);
+  }
+
+  window.addEventListener("keydown", event => {
+    if (!document.getElementById("screen-arena").classList.contains("active")) return;
+    const activeTag = document.activeElement && document.activeElement.tagName;
+    const isTyping = activeTag === "INPUT" || activeTag === "TEXTAREA";
+    if (event.key === "Enter" && isTyping && document.activeElement.id === "competitor-answer-input") {
+      event.preventDefault();
+      submitCompetitorAnswer(false);
       return;
     }
-    if (isTyping) return;
-    if (e.code === 'Space' && !(currentUser.isHost && currentUser.team === 'Host')) {
-      e.preventDefault();
+    if (isTyping || event.repeat) return;
+    if (event.code === "Space" && currentUser.team !== "Host") {
+      event.preventDefault();
       triggerBuzzer();
     }
-    if (e.code === 'KeyN' && currentUser.isHost) {
-      e.preventDefault();
+    if (event.code === "KeyN" && currentUser.isHost) {
+      event.preventDefault();
       loadNextQuestionCloud();
     }
-    if (e.code === 'KeyP' && currentUser.isHost) {
-      e.preventDefault();
+    if (event.code === "KeyP" && currentUser.isHost) {
+      event.preventDefault();
       toggleMatchPause();
     }
   });
