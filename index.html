@@ -18,7 +18,6 @@
       --bg-surface: #111827;
       --bg-card: #1f293d;
       --border-subtle: rgba(255, 255, 255, 0.08);
-      --border-focus: rgba(56, 189, 248, 0.4);
       --accent-cyan: #0ea5e9;
       --accent-glow: rgba(14, 165, 233, 0.25);
       --team-red-base: #f43f5e;
@@ -317,7 +316,7 @@
 
         <label class="label-text">Display Mode Setting</label>
         <select id="display-mode-select" class="input-field">
-          <option value="reading-stream">Reading & Text (Word-by-Word Stream)</option>
+          <option value="reading-stream" selected>Reading & Text (Word-by-Word Stream)</option>
           <option value="text-only">Text Only (Instant Full Question)</option>
         </select>
 
@@ -489,6 +488,7 @@
   let activeDisplayMode = "reading-stream";
   let roomListenerRef = null;
   let triviaQADataSet = [];
+  let currentStreamTimer = null;
 
   let fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -814,18 +814,51 @@
     if (!currentUser.isHost) return;
     let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
     const q = pool[Math.floor(Math.random() * pool.length)];
+    const fullText = q.text.replace(/\(\*\)/g, '');
 
-    dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-      status: "READING",
-      questionText: q.text.replace(/\(\*\)/g, ''),
-      answerline: q.answer,
-      buzzPlayer: null
-    });
-    speakModeratorAudio(q.text);
+    if (currentStreamTimer) clearInterval(currentStreamTimer);
+
+    if (activeDisplayMode === 'text-only') {
+      dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
+        status: "READING",
+        questionText: fullText,
+        answerline: q.answer,
+        buzzPlayer: null
+      });
+      speakModeratorAudio(fullText);
+    } else {
+      // Word-by-word streaming mode
+      dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
+        status: "READING",
+        questionText: "",
+        answerline: q.answer,
+        buzzPlayer: null
+      });
+
+      speakModeratorAudio(fullText);
+
+      const words = fullText.split(' ');
+      let currentWordIndex = 0;
+      const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
+      const delayMs = Math.max(80, Math.floor(60000 / (wpm * 1.2)));
+
+      currentStreamTimer = setInterval(() => {
+        if (currentWordIndex < words.length) {
+          const partialText = words.slice(0, currentWordIndex + 1).join(' ');
+          dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ questionText: partialText });
+          currentWordIndex++;
+        } else {
+          clearInterval(currentStreamTimer);
+        }
+      }, delayMs);
+    }
   }
 
   function triggerBuzzer() {
     if (currentUser.isHost) return;
+    if (currentStreamTimer) clearInterval(currentStreamTimer);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
     playSoundEffect('buzz');
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
       status: "BUZZED",
