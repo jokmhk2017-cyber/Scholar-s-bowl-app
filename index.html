@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KSHSAA 5v5 Scholars Bowl - Full Championship Cloud Edition</title>
+  <title>KSHSAA 5v5 Scholars Bowl - Mobile Responsive Cloud Edition</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -43,7 +43,7 @@
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', sans-serif;
       margin: 0;
-      padding: 24px 16px;
+      padding: 12px 8px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -55,10 +55,10 @@
       background-color: var(--bg-surface);
       width: 100%;
       max-width: 1100px;
-      border-radius: 20px;
+      border-radius: 16px;
       border: 1px solid var(--border-subtle);
-      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.7);
-      padding: 28px;
+      box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.7);
+      padding: 16px;
       box-sizing: border-box;
     }
 
@@ -67,86 +67,78 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border-subtle);
-      padding-bottom: 20px;
-      margin-bottom: 24px;
-      gap: 16px;
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
     .brand-title {
-      font-size: 1.25rem;
+      font-size: 1.1rem;
       font-weight: 800;
       letter-spacing: -0.02em;
       color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .brand-title span { color: var(--accent-cyan); }
 
-    .nav-tabs-group { display: flex; gap: 8px; }
+    .nav-tabs-group { display: flex; gap: 6px; }
 
     .tab-btn {
       background: var(--bg-card);
       color: var(--text-muted);
       border: 1px solid var(--border-subtle);
-      padding: 8px 16px;
-      border-radius: 10px;
+      padding: 6px 12px;
+      border-radius: 8px;
       font-weight: 600;
-      font-size: 0.875rem;
+      font-size: 0.8125rem;
       cursor: pointer;
-      transition: all 0.2s ease;
     }
 
-    .tab-btn:hover, .tab-btn.active {
+    .tab-btn.active {
       background: var(--accent-cyan);
       color: #090d16;
       border-color: var(--accent-cyan);
-      box-shadow: 0 0 15px var(--accent-glow);
     }
 
-    .utility-group { display: flex; gap: 8px; }
+    .utility-group { display: flex; gap: 6px; }
 
     .util-btn {
       background: var(--bg-card);
       color: var(--text-main);
       border: 1px solid var(--border-subtle);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 0.8125rem;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
       font-weight: 600;
       cursor: pointer;
     }
 
-    .util-btn:hover { border-color: var(--accent-cyan); }
-
     .screen { display: none; }
-    .screen.active { display: block; animation: fadeIn 0.25s ease-out; }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+    .screen.active { display: block; }
 
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
+      gap: 14px;
     }
 
     .card-panel {
       background-color: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 22px;
+      border-radius: 12px;
+      padding: 16px;
+      box-sizing: border-box;
     }
 
     .card-panel h2 {
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 700;
       margin-top: 0;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       color: var(--text-main);
     }
 
@@ -154,23 +146,21 @@
       background: var(--bg-base);
       border: 1px solid var(--border-subtle);
       color: var(--text-main);
-      padding: 12px 14px;
-      border-radius: 10px;
-      font-size: 0.9375rem;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 1rem; /* Prevent auto-zoom on mobile inputs */
       width: 100%;
       box-sizing: border-box;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       font-family: inherit;
       outline: none;
     }
 
-    .input-field:focus, select:focus { border-color: var(--accent-cyan); }
-
     .label-text {
-      font-size: 0.8125rem;
+      font-size: 0.75rem;
       font-weight: 600;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 4px;
       display: block;
       text-transform: uppercase;
       letter-spacing: 0.04em;
@@ -180,17 +170,16 @@
       background: var(--accent-cyan);
       color: #090d16;
       border: none;
-      padding: 12px 20px;
+      padding: 14px 20px;
       border-radius: 10px;
       font-weight: 700;
-      font-size: 0.9375rem;
+      font-size: 1rem;
       cursor: pointer;
       width: 100%;
-      transition: all 0.2s;
       box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+      box-sizing: border-box;
     }
 
-    .btn-action:hover { filter: brightness(1.1); transform: translateY(-1px); }
     .btn-secondary { background: #334155; color: white; box-shadow: none; }
 
     .arena-scoreboard {
@@ -199,45 +188,48 @@
       align-items: center;
       background: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      padding: 14px 20px;
-      border-radius: 12px;
-      margin-bottom: 16px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      margin-bottom: 12px;
       font-family: 'JetBrains Mono', monospace;
+      gap: 6px;
     }
 
     .team-badge {
       font-weight: 700;
-      font-size: 1rem;
+      font-size: 0.875rem;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 6px;
     }
 
     .team-badge.red { color: var(--team-red-base); }
     .team-badge.green { color: var(--team-green-base); }
-    .score-digits { font-size: 1.5rem; font-weight: 800; }
+    .score-digits { font-size: 1.25rem; font-weight: 800; }
 
     .match-context-tag {
       background: rgba(245, 158, 11, 0.15);
       color: var(--accent-gold);
       border: 1px solid rgba(245, 158, 11, 0.3);
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.65rem;
       font-weight: 700;
       text-transform: uppercase;
+      text-align: center;
     }
 
     .question-display-box {
       background: var(--bg-base);
       border: 2px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 24px;
-      min-height: 160px;
-      font-size: var(--q-font-size, 1.15rem);
-      line-height: 1.7;
-      margin-bottom: 16px;
+      border-radius: 12px;
+      padding: 16px;
+      min-height: 140px;
+      font-size: var(--q-font-size, 1.05rem);
+      line-height: 1.6;
+      margin-bottom: 12px;
       box-sizing: border-box;
+      word-break: break-word;
     }
 
     .timer-track {
@@ -246,7 +238,7 @@
       background: var(--bg-base);
       border-radius: 3px;
       overflow: hidden;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     .timer-fill {
@@ -259,11 +251,12 @@
     .status-alert-bar {
       background: var(--bg-card);
       border-left: 4px solid var(--accent-gold);
-      padding: 12px 18px;
+      padding: 10px 14px;
       border-radius: 8px;
       font-weight: 600;
+      font-size: 0.875rem;
       color: var(--accent-gold);
-      margin-bottom: 16px;
+      margin-bottom: 12px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -272,17 +265,20 @@
     .roster-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 8px;
-      margin-bottom: 16px;
+      gap: 6px;
+      margin-bottom: 12px;
     }
 
     .desk-podium {
       background: var(--bg-base);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
-      padding: 10px;
+      border-radius: 6px;
+      padding: 6px 4px;
       text-align: center;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .desk-podium.team-a { border-left: 3px solid var(--team-red-base); }
@@ -290,17 +286,27 @@
 
     .control-actions-row {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       justify-content: center;
       flex-wrap: wrap;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     .hidden { display: none !important; }
 
+    /* MOBILE RESPONSIVE MEDIA BREAKPOINTS */
     @media (max-width: 768px) {
-      .grid-2 { grid-template-columns: 1fr; }
+      body { padding: 4px; }
+      .app-frame { padding: 10px; border-radius: 12px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 12px; }
       .roster-grid { grid-template-columns: repeat(3, 1fr); }
+      .app-header { flex-direction: column; align-items: stretch; gap: 8px; }
+      .nav-tabs-group { justify-content: space-between; }
+      .utility-group { justify-content: flex-end; }
+      .arena-scoreboard { padding: 8px 10px; }
+      .team-badge { font-size: 0.75rem; }
+      .score-digits { font-size: 1.1rem; }
+      .btn-action { padding: 14px; font-size: 1rem; }
     }
   </style>
 </head>
@@ -310,11 +316,11 @@
   <!-- TOP NAVIGATION HEADER -->
   <header class="app-header">
     <div class="brand-title">
-      <span>🏆</span> KSHSAA 5v5 <span>Cloud Championship Suite</span>
+      <span>🏆</span> KSHSAA 5v5 <span>Cloud Arena</span>
     </div>
     <div class="nav-tabs-group">
-      <button class="tab-btn active" onclick="switchScreen('setup')">Room Gateway</button>
-      <button class="tab-btn" onclick="switchScreen('arena')" id="nav-arena-tab" style="opacity:0.5; pointer-events:none;">Live Match Arena</button>
+      <button class="tab-btn active" onclick="switchScreen('setup')">Gateway</button>
+      <button class="tab-btn" onclick="switchScreen('arena')" id="nav-arena-tab" style="opacity:0.5; pointer-events:none;">Arena</button>
     </div>
     <div class="utility-group">
       <button class="util-btn" onclick="adjustFontSize(-0.1)">A-</button>
@@ -327,15 +333,15 @@
   <div id="screen-setup" class="screen active">
     <div class="grid-2">
       <div class="card-panel">
-        <h2>Host a New 5v5 Room</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Create a master session. Configure audio reading targets below.</p>
+        <h2>Host a New Room</h2>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0;">Create a master session. Configure audio and display settings.</p>
         
         <label class="label-text">Host Name / Moderator</label>
         <input type="text" id="host-name-input" class="input-field" value="Moderator">
 
         <label class="label-text">Host Role in Room</label>
         <select id="host-role-select" class="input-field">
-          <option value="spectator">Spectator / Moderator (No Player Desk)</option>
+          <option value="spectator">Spectator / Moderator (No Desk)</option>
           <option value="player-a">Play as Team A Competitor</option>
           <option value="player-b">Play as Team B Competitor</option>
         </select>
@@ -353,13 +359,13 @@
           <option value="all-devices">All Player Phones & Host</option>
         </select>
 
-        <div class="grid-2" style="gap:10px; margin-bottom:6px;">
+        <div class="grid-2" style="gap:8px; margin-bottom:4px;">
           <div>
             <label class="label-text">Speed: <span id="wpm-display">220</span> WPM</label>
             <input type="range" id="wpm-slider" min="120" max="380" value="220" style="width:100%; accent-color:var(--accent-cyan);" oninput="document.getElementById('wpm-display').textContent=this.value">
           </div>
           <div>
-            <label class="label-text">Moderator Voice (AI Reader)</label>
+            <label class="label-text">AI Reader Voice</label>
             <select id="tts-select" class="input-field" style="margin-bottom:0;">
               <option value="on" selected>On (Speech Audio)</option>
               <option value="off">Off (Silent)</option>
@@ -367,22 +373,22 @@
           </div>
         </div>
 
-        <button class="btn-action" style="margin-top:8px;" onclick="hostAndOpenRoom()">Host & Enter Lobby 🚀</button>
+        <button class="btn-action" style="margin-top:12px;" onclick="hostAndOpenRoom()">Host & Enter Lobby 🚀</button>
       </div>
 
       <div class="card-panel">
-        <h2>Join Room (PIN First)</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Enter an active 4-digit room code to join as a competitor.</p>
+        <h2>Join Room</h2>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0;">Enter an active 4-digit room code to join as a competitor.</p>
 
         <label class="label-text">Enter 4-Digit Room PIN</label>
-        <input type="text" id="join-pin-input" class="input-field" placeholder="e.g. 4829" maxlength="4" style="font-family:'JetBrains Mono'; font-size:1.2rem; letter-spacing:2px;">
+        <input type="text" id="join-pin-input" class="input-field" placeholder="e.g. 4829" maxlength="4" style="font-family:'JetBrains Mono'; font-size:1.2rem; letter-spacing:2px; text-align:center;">
 
         <button class="btn-action btn-secondary" onclick="verifyRoomPinAndPromptName()">Enter Room →</button>
 
-        <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:12px; border-radius:10px; margin-top:16px;">
+        <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:10px; border-radius:8px; margin-top:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:0.8rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA-20K Dataset: Standby</span>
-            <button class="util-btn" onclick="syncTriviaDataset()">Sync Database</button>
+            <span style="font-size:0.75rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA Dataset: Standby</span>
+            <button class="util-btn" onclick="syncTriviaDataset()">Sync</button>
           </div>
         </div>
       </div>
@@ -391,9 +397,9 @@
 
   <!-- SCREEN 1.5: JOIN NAME MODAL -->
   <div id="screen-join-name" class="screen">
-    <div class="card-panel" style="max-width:450px; margin:40px auto; text-align:center;">
+    <div class="card-panel" style="max-width:400px; margin:20px auto; text-align:center;">
       <h2>Join Room <span id="modal-pin-display" style="color:var(--accent-cyan); font-family:'JetBrains Mono';">----</span></h2>
-      <p style="font-size:0.85rem; color:var(--text-muted);">Room verified! Enter your competitor details.</p>
+      <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Enter your competitor details.</p>
 
       <label class="label-text" style="text-align:left;">Your Competitor Name</label>
       <input type="text" id="modal-competitor-name" class="input-field" placeholder="Enter name...">
@@ -404,52 +410,52 @@
         <option value="B">Team B (Green)</option>
       </select>
 
-      <div style="display:flex; gap:10px; margin-top:10px;">
+      <div style="display:flex; gap:8px; margin-top:8px;">
         <button class="btn-action btn-secondary" onclick="switchScreen('setup')">Cancel</button>
-        <button class="btn-action" onclick="finalizeJoinRoom()">Join Lobby 🚀</button>
+        <button class="btn-action" onclick="finalizeJoinRoom()">Join 🚀</button>
       </div>
     </div>
   </div>
 
   <!-- SCREEN 1B: LOBBY -->
   <div id="screen-lobby" class="screen">
-    <div class="card-panel" style="max-width:750px; margin:0 auto;">
-      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:12px; margin-bottom:16px;">
-        <h2 style="margin:0;">Room Lobby Management</h2>
-        <div style="font-family:'JetBrains Mono'; font-weight:700; color:var(--accent-gold);">ACTIVE PIN: <span id="lobby-room-code-tag">----</span></div>
+    <div class="card-panel" style="max-width:700px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:10px; margin-bottom:14px;">
+        <h2 style="margin:0;">Lobby Management</h2>
+        <div style="font-family:'JetBrains Mono'; font-weight:700; color:var(--accent-gold); font-size:0.9rem;">PIN: <span id="lobby-room-code-tag">----</span></div>
       </div>
 
-      <div class="grid-2" style="gap:14px; margin-bottom:16px;" id="host-roster-controls">
+      <div class="grid-2" style="gap:10px; margin-bottom:14px;" id="host-roster-controls">
         <div>
           <label class="label-text">Add Roster Member</label>
-          <input type="text" id="lobby-new-name" class="input-field" placeholder="Competitor Name...">
-          <div style="display:flex; gap:8px;">
+          <input type="text" id="lobby-new-name" class="input-field" placeholder="Name...">
+          <div style="display:flex; gap:6px;">
             <select id="lobby-new-team" class="input-field" style="margin-bottom:0;">
-              <option value="A">Team A (Red)</option>
-              <option value="B">Team B (Green)</option>
+              <option value="A">Team A</option>
+              <option value="B">Team B</option>
             </select>
-            <button class="btn-action" style="width:auto; margin-bottom:0;" onclick="addRosterMember()">Add</button>
+            <button class="btn-action" style="width:auto; margin-bottom:0; padding:8px 12px;" onclick="addRosterMember()">Add</button>
           </div>
         </div>
         <div style="display:flex; flex-direction:column; justify-content:flex-end;">
-          <button class="btn-action btn-secondary" onclick="populateBotRoster()">🤖 Populate AI Bot Squads</button>
+          <button class="btn-action btn-secondary" onclick="populateBotRoster()">🤖 Populate AI Bots</button>
         </div>
       </div>
 
-      <div class="grid-2" style="gap:14px; margin-bottom:20px;">
-        <div style="background:var(--bg-base); padding:12px; border-radius:10px; border:1px solid rgba(244,63,94,0.3);">
-          <strong style="color:var(--team-red-base); font-size:0.875rem;">TEAM A RED (<span id="count-a">0</span>/5)</strong>
-          <ul id="list-a" style="list-style:none; padding:0; margin:8px 0 0 0; font-size:0.875rem; color:var(--text-muted);"></ul>
+      <div class="grid-2" style="gap:10px; margin-bottom:16px;">
+        <div style="background:var(--bg-base); padding:10px; border-radius:8px; border:1px solid rgba(244,63,94,0.3);">
+          <strong style="color:var(--team-red-base); font-size:0.8rem;">TEAM A RED (<span id="count-a">0</span>/5)</strong>
+          <ul id="list-a" style="list-style:none; padding:0; margin:6px 0 0 0; font-size:0.8rem; color:var(--text-muted);"></ul>
         </div>
-        <div style="background:var(--bg-base); padding:12px; border-radius:10px; border:1px solid rgba(16,185,129,0.3);">
-          <strong style="color:var(--team-green-base); font-size:0.875rem;">TEAM B GREEN (<span id="count-b">0</span>/5)</strong>
-          <ul id="list-b" style="list-style:none; padding:0; margin:8px 0 0 0; font-size:0.875rem; color:var(--text-muted);"></ul>
+        <div style="background:var(--bg-base); padding:10px; border-radius:8px; border:1px solid rgba(16,185,129,0.3);">
+          <strong style="color:var(--team-green-base); font-size:0.8rem;">TEAM B GREEN (<span id="count-b">0</span>/5)</strong>
+          <ul id="list-b" style="list-style:none; padding:0; margin:6px 0 0 0; font-size:0.8rem; color:var(--text-muted);"></ul>
         </div>
       </div>
 
-      <div style="display:flex; gap:12px;">
-        <button class="btn-action btn-secondary" style="width:auto;" onclick="switchScreen('setup')">← Leave Room</button>
-        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Lock Roster & Start Match 🔒</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-action btn-secondary" style="width:auto;" onclick="switchScreen('setup')">← Leave</button>
+        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match 🔒</button>
       </div>
     </div>
   </div>
@@ -458,21 +464,21 @@
   <div id="screen-arena" class="screen">
     <div class="arena-scoreboard">
       <div class="team-badge red">
-        <span>🔴</span> TEAM A: <span class="score-digits" id="score-a">0</span>
+        <span>🔴</span> A: <span class="score-digits" id="score-a">0</span>
       </div>
-      <div class="match-context-tag" id="rotation-status-badge">ROUND QUESTION 1 / 16</div>
+      <div class="match-context-tag" id="rotation-status-badge">Q 1 / 16</div>
       <div class="team-badge green" style="justify-content:flex-end;">
-        TEAM B: <span class="score-digits" id="score-b">0</span> <span>🟢</span>
+        B: <span class="score-digits" id="score-b">0</span> <span>🟢</span>
       </div>
     </div>
 
     <div class="roster-grid" id="arena-roster-grid"></div>
 
-    <div class="arena-top-bar" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:10px 16px; border-radius:10px; margin-bottom:12px; font-size:0.875rem; font-weight:700;">
-      <span style="color:var(--accent-cyan);" id="arena-status-tag">CLOUD SYNCHRONIZED ARENA</span>
-      <div style="display:flex; align-items:center; gap:12px;">
+    <div class="arena-top-bar" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:8px 12px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:700;">
+      <span style="color:var(--accent-cyan);">SYNCED ARENA</span>
+      <div style="display:flex; align-items:center; gap:8px;">
         <button class="util-btn" id="arena-voice-toggle" onclick="toggleArenaVoice()">🔊 Voice: ON</button>
-        <span>ROLE: <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span></span>
+        <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span>
       </div>
     </div>
 
@@ -481,27 +487,27 @@
     </div>
 
     <div class="question-display-box" id="active-question-box">
-      Waiting for host to start packet reading ([N] or Next Question)...
+      Waiting for host to start packet reading...
     </div>
 
     <div class="status-alert-bar" id="arena-status-banner">
-      <span id="status-message-text">Shortcuts: [Space] Buzz | [Enter] Submit | [N] Next | [P] Pause</span>
+      <span id="status-message-text">[Space] Buzz | [Enter] Submit | [N] Next</span>
     </div>
 
     <div class="control-actions-row" id="host-controls-row">
-      <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:200px;" onclick="triggerBuzzer()" disabled>🔔 BUZZ IN ([SPACE])</button>
-      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto;" onclick="toggleMatchPause()">⏸️ Pause ([P])</button>
-      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next Question ([N])</button>
+      <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:180px;" onclick="triggerBuzzer()" disabled>🔔 BUZZ IN ([SPACE])</button>
+      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto;" onclick="toggleMatchPause()">⏸️</button>
+      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next</button>
     </div>
 
-    <div id="answer-input-container" class="hidden" style="max-width:480px; margin:0 auto; margin-bottom:14px;">
+    <div id="answer-input-container" class="hidden" style="max-width:100%; margin:0 auto; margin-bottom:10px;">
       <input type="text" id="competitor-answer-input" class="input-field" placeholder="Type answer & press Enter..." autocomplete="off">
       <button class="btn-action" onclick="submitCompetitorAnswer()">Submit Answer</button>
     </div>
 
-    <div id="answerline-panel" class="card-panel hidden" style="margin-top:14px;">
-      <h2 style="margin-bottom:6px; font-size:0.9rem;">Official Answerline</h2>
-      <div style="font-family:'JetBrains Mono'; color:var(--accent-gold); font-weight:700;" id="resolved-answerline-text"></div>
+    <div id="answerline-panel" class="card-panel hidden" style="margin-top:10px;">
+      <h2 style="margin-bottom:4px; font-size:0.85rem;">Official Answerline</h2>
+      <div style="font-family:'JetBrains Mono'; color:var(--accent-gold); font-weight:700; font-size:0.9rem;" id="resolved-answerline-text"></div>
     </div>
   </div>
 </div>
@@ -605,7 +611,6 @@
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
     
-    // Check audio target rule: if host-only and current user is competitor, skip speech
     if (activeAudioTarget === 'host-only' && (!currentUser.isHost || currentUser.team !== 'Host')) return;
 
     if (activeDisplayMode === 'voice-only') {
@@ -679,8 +684,8 @@
 
   function adjustFontSize(delta) {
     const root = document.documentElement;
-    const current = parseFloat(getComputedStyle(root).getPropertyValue('--q-font-size')) || 1.15;
-    root.style.setProperty('--q-font-size', Math.min(1.6, Math.max(0.9, current + delta)) + 'rem');
+    const current = parseFloat(getComputedStyle(root).getPropertyValue('--q-font-size')) || 1.05;
+    root.style.setProperty('--q-font-size', Math.min(1.5, Math.max(0.85, current + delta)) + 'rem');
   }
 
   function toggleContrast() { document.body.classList.toggle('high-contrast'); }
@@ -841,8 +846,8 @@
       if (grid) {
         grid.innerHTML = roster.map(p => `
           <div class="desk-podium ${p.team === 'A' ? 'team-a' : 'team-b'}">
-            <strong style="display:block; margin-bottom:2px;">${p.name}</strong>
-            <div style="width:8px; height:8px; border-radius:50%; background:${data.gameState && data.gameState.buzzPlayer === p.name ? 'var(--team-red-base)' : '#334155'}; margin:0 auto;"></div>
+            <strong style="display:block; font-size:0.65rem; overflow:hidden; text-overflow:ellipsis;">${p.name}</strong>
+            <div style="width:6px; height:6px; border-radius:50%; background:${data.gameState && data.gameState.buzzPlayer === p.name ? 'var(--team-red-base)' : '#334155'}; margin:2px auto 0 auto;"></div>
           </div>
         `).join('');
       }
@@ -851,11 +856,11 @@
       if (gState) {
         document.getElementById('score-a').textContent = gState.scoreA || 0;
         document.getElementById('score-b').textContent = gState.scoreB || 0;
-        document.getElementById('rotation-status-badge').textContent = `ROUND QUESTION ${gState.questionIndex || 1} / 16`;
+        document.getElementById('rotation-status-badge').textContent = `Q ${gState.questionIndex || 1} / 16`;
         
         const qBox = document.getElementById('active-question-box');
         if (activeDisplayMode === 'voice-only') {
-          qBox.innerHTML = "<em>[Audio Moderator Mode: Question text hidden on screen. Listen carefully!]</em>";
+          qBox.innerHTML = "<em>[Audio Mode: Text hidden]</em>";
         } else {
           qBox.innerHTML = gState.questionText || "";
         }
@@ -870,7 +875,7 @@
         }
 
         if (gState.buzzPlayer) {
-          document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed in!`;
+          document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed!`;
         }
 
         if (gState.status === "ENDED") {
@@ -881,7 +886,7 @@
         }
       }
 
-      document.getElementById('personal-role-tag').textContent = currentUser.isHost && currentUser.team === 'Host' ? "MODERATOR / HOST" : `COMPETITOR (${currentUser.team})`;
+      document.getElementById('personal-role-tag').textContent = currentUser.isHost && currentUser.team === 'Host' ? "MODERATOR" : `TEAM ${currentUser.team}`;
 
       if (currentUser.isHost) {
         document.querySelectorAll('.host-only-control').forEach(el => el.classList.remove('hidden'));
@@ -899,7 +904,7 @@
     });
   }
 
- function loadNextQuestionCloud() {
+  function loadNextQuestionCloud() {
     if (!currentUser.isHost) return;
     let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
     const q = pool[Math.floor(Math.random() * pool.length)];
@@ -920,9 +925,8 @@
           answerline: q.answer,
           buzzPlayer: null
         });
-        speakModeratorAudio(fullText);
+        setTimeout(() => speakModeratorAudio(fullText), 150);
       } else {
-        // Step 1: Push initial empty or first-word state cleanly
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
           status: "READING",
           questionIndex: nextIndex,
@@ -931,12 +935,10 @@
           buzzPlayer: null
         });
 
-        // Step 2: Trigger audio after a micro-pause to let network and audio buffer settle
         setTimeout(() => {
           speakModeratorAudio(fullText);
         }, 150);
 
-        // Step 3: Stream words with a smooth, stable interval cadence
         const words = fullText.split(' ');
         let currentWordIndex = 0;
         const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
