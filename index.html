@@ -899,7 +899,7 @@
     });
   }
 
-  function loadNextQuestionCloud() {
+ function loadNextQuestionCloud() {
     if (!currentUser.isHost) return;
     let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
     const q = pool[Math.floor(Math.random() * pool.length)];
@@ -922,7 +922,7 @@
         });
         speakModeratorAudio(fullText);
       } else {
-        // Word-by-word scrolling stream across all screens
+        // Step 1: Push initial empty or first-word state cleanly
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
           status: "READING",
           questionIndex: nextIndex,
@@ -931,8 +931,12 @@
           buzzPlayer: null
         });
 
-        speakModeratorAudio(fullText);
+        // Step 2: Trigger audio after a micro-pause to let network and audio buffer settle
+        setTimeout(() => {
+          speakModeratorAudio(fullText);
+        }, 150);
 
+        // Step 3: Stream words with a smooth, stable interval cadence
         const words = fullText.split(' ');
         let currentWordIndex = 0;
         const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
