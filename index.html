@@ -7,6 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- Firebase App SDK & Realtime Database SDK (Compat Versions) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
   <style>
     :root {
       --bg-base: #090d16;
@@ -336,7 +341,7 @@
     <div class="grid-2">
       <div class="card-panel">
         <h2>Host a New 5v5 Room</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Create a secure lobby session. 16 random questions per round; -5 penalty only on early buzz interrupts.</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Create a secure lobby session. Cloud synced across devices and networks.</p>
         
         <label class="label-text">Host Name / Moderator</label>
         <input type="text" id="host-name-input" class="input-field" value="Teacher / Moderator">
@@ -374,7 +379,7 @@
 
       <div class="card-panel">
         <h2>Join Room (PIN First)</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Enter an active 4-digit room code to join the match session.</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Enter an active 4-digit room code generated on another device.</p>
 
         <label class="label-text">Enter 4-Digit Room PIN</label>
         <input type="text" id="join-pin-input" class="input-field" placeholder="e.g. 4829" maxlength="4" style="font-family:'JetBrains Mono'; font-size:1.2rem; letter-spacing:2px;">
@@ -509,6 +514,33 @@
 </div>
 
 <script>
+  // FIREBASE CLOUD DATABASE SETUP
+  const firebaseConfig = {
+    apiKey: "AIzaSyA-4QYBAyBWKKiPX40QvgOabJZNKVeQg6m",
+    authDomain: "kshsaa-scholars-bowl.firebaseapp.com",
+    databaseURL: "https://kshsaa-scholars-bowl-default-rtdb.firebaseio.com",
+    projectId: "kshsaa-scholars-bowl",
+    storageBucket: "kshsaa-scholars-bowl.appspot.com",
+    messagingSenderId: "90098230367",
+    appId: "1:90098230367:web:e4f54dee42c52a572067ea",
+    measurementId: "G-F4Y0FD1RSM"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const dbRef = firebase.database();
+
+  function getRoomData(pin, callback) {
+    dbRef.ref('rooms/' + pin).once('value').then((snapshot) => {
+      callback(snapshot.val());
+    });
+  }
+
+  function saveRoomData(pin, data, callback) {
+    dbRef.ref('rooms/' + pin).set(data, () => {
+      if (callback) callback();
+    });
+  }
+
   // AUDIO SYNTHESIS & SFX
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   function playSoundEffect(type) {
@@ -654,26 +686,9 @@
     return distance <= maxAllowedErrors;
   }
 
-  // APPLICATION STATE & LOCALSTORAGE REGISTRY SYNC
   let currentScreen = 'setup';
   let activeRoomPin = "";
   let activeDisplayMode = "reading-stream";
-
-  function getRoomsRegistry() {
-    try {
-      const data = localStorage.getItem('kshsaa_rooms');
-      return data ? JSON.parse(data) : { "4829": { host: "Default Host", roster: [] } };
-    } catch (e) {
-      return { "4829": { host: "Default Host", roster: [] } };
-    }
-  }
-
-  function saveRoomsRegistry(registry) {
-    try {
-      localStorage.setItem('kshsaa_rooms', JSON.stringify(registry));
-    } catch (e) {}
-  }
-  
   let matchStats = { personalScore: 0, teamAScore: 0, teamBScore: 0, questionIndex: 0 };
   let matchState = "IDLE";
   let activeQuestion = null;
@@ -726,11 +741,6 @@
     }
     
     activeRoomPin = generateRandomPin();
-    let registry = getRoomsRegistry();
-    while (registry[activeRoomPin]) {
-      activeRoomPin = generateRandomPin();
-    }
-
     let initialRoster = [];
     if (hostRole === 'player-a') {
       initialRoster.push({ name: hostName, team: 'A' });
@@ -738,17 +748,18 @@
       initialRoster.push({ name: hostName, team: 'B' });
     }
 
-    registry[activeRoomPin] = {
+    const roomPayload = {
       host: hostName,
       roster: initialRoster,
       displayMode: activeDisplayMode
     };
 
-    saveRoomsRegistry(registry);
-    rosterList = registry[activeRoomPin].roster;
-    document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
-    renderRosterList();
-    switchScreen('lobby');
+    saveRoomData(activeRoomPin, roomPayload, () => {
+      rosterList = initialRoster;
+      document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
+      renderRosterList();
+      switchScreen('lobby');
+    });
   }
 
   function verifyRoomPinAndPromptName() {
@@ -758,45 +769,48 @@
       return;
     }
 
-    let registry = getRoomsRegistry();
-    if (!registry[pin]) {
-      alert(`Error: Room PIN "${pin}" does not exist across browser tabs. Make sure it was hosted in another tab first.`);
-      return;
-    }
+    getRoomData(pin, (roomData) => {
+      if (!roomData) {
+        alert(`Error: Room PIN "${pin}" does not exist in the cloud database.`);
+        return;
+      }
 
-    activeRoomPin = pin;
-    if (registry[pin].displayMode) {
-      activeDisplayMode = registry[pin].displayMode;
-    }
+      activeRoomPin = pin;
+      if (roomData.displayMode) {
+        activeDisplayMode = roomData.displayMode;
+      }
 
-    document.getElementById('modal-pin-display').textContent = activeRoomPin;
-    switchScreen('join-name');
+      document.getElementById('modal-pin-display').textContent = activeRoomPin;
+      switchScreen('join-name');
+    });
   }
 
   function finalizeJoinRoom() {
     const playerName = document.getElementById('modal-competitor-name').value.trim() || "Competitor";
     const team = document.getElementById('modal-team-select').value;
 
-    let registry = getRoomsRegistry();
-    if (!registry[activeRoomPin]) {
-      alert("Room session expired.");
-      switchScreen('setup');
-      return;
-    }
+    getRoomData(activeRoomPin, (roomData) => {
+      if (!roomData) {
+        alert("Room session expired.");
+        switchScreen('setup');
+        return;
+      }
 
-    rosterList = registry[activeRoomPin].roster;
-    
-    if (rosterList.filter(p => p.team === team).length >= 5) {
-      alert(`Team ${team} in room ${activeRoomPin} is full (5 players max)!`);
-      return;
-    }
+      rosterList = roomData.roster || [];
+      if (rosterList.filter(p => p.team === team).length >= 5) {
+        alert(`Team ${team} in room ${activeRoomPin} is full (5 players max)!`);
+        return;
+      }
 
-    rosterList.push({ name: playerName, team: team });
-    saveRoomsRegistry(registry);
+      rosterList.push({ name: playerName, team: team });
+      roomData.roster = rosterList;
 
-    document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
-    renderRosterList();
-    switchScreen('lobby');
+      saveRoomData(activeRoomPin, roomData, () => {
+        document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
+        renderRosterList();
+        switchScreen('lobby');
+      });
+    });
   }
 
   function addRosterMember() {
@@ -805,44 +819,55 @@
     const team = document.getElementById('lobby-new-team').value;
     if (!name) return;
 
-    let registry = getRoomsRegistry();
-    rosterList = registry[activeRoomPin] ? registry[activeRoomPin].roster : rosterList;
+    getRoomData(activeRoomPin, (roomData) => {
+      if (!roomData) return;
+      rosterList = roomData.roster || [];
 
-    if (rosterList.filter(p => p.team === team).length >= 5) {
-      alert(`Team ${team} is at full capacity (5 players max)!`);
-      return;
-    }
-    rosterList.push({ name, team });
-    saveRoomsRegistry(registry);
-    input.value = "";
-    renderRosterList();
+      if (rosterList.filter(p => p.team === team).length >= 5) {
+        alert(`Team ${team} is at full capacity (5 players max)!`);
+        return;
+      }
+      rosterList.push({ name, team });
+      roomData.roster = rosterList;
+
+      saveRoomData(activeRoomPin, roomData, () => {
+        input.value = "";
+        renderRosterList();
+      });
+    });
   }
 
   function populateBotRoster() {
-    let registry = getRoomsRegistry();
-    rosterList = registry[activeRoomPin] ? registry[activeRoomPin].roster : rosterList;
+    getRoomData(activeRoomPin, (roomData) => {
+      if (!roomData) return;
+      rosterList = roomData.roster || [];
 
-    ['A', 'B'].forEach(team => {
-      while (rosterList.filter(p => p.team === team).length < 5) {
-        const count = rosterList.filter(p => p.team === team).length + 1;
-        rosterList.push({ name: `AI Bot ${count} (Team ${team})`, team });
-      }
+      ['A', 'B'].forEach(team => {
+        while (rosterList.filter(p => p.team === team).length < 5) {
+          const count = rosterList.filter(p => p.team === team).length + 1;
+          rosterList.push({ name: `AI Bot ${count} (Team ${team})`, team });
+        }
+      });
+      roomData.roster = rosterList;
+
+      saveRoomData(activeRoomPin, roomData, () => {
+        renderRosterList();
+      });
     });
-    saveRoomsRegistry(registry);
-    renderRosterList();
   }
 
   function renderRosterList() {
-    let registry = getRoomsRegistry();
-    if (registry[activeRoomPin]) {
-      rosterList = registry[activeRoomPin].roster;
-    }
-    const teamA = rosterList.filter(p => p.team === 'A');
-    const teamB = rosterList.filter(p => p.team === 'B');
-    document.getElementById('count-a').textContent = teamA.length;
-    document.getElementById('count-b').textContent = teamB.length;
-    document.getElementById('list-a').innerHTML = teamA.map(p => `<li>• ${p.name}</li>`).join('');
-    document.getElementById('list-b').innerHTML = teamB.map(p => `<li>• ${p.name}</li>`).join('');
+    getRoomData(activeRoomPin, (roomData) => {
+      if (roomData && roomData.roster) {
+        rosterList = roomData.roster;
+      }
+      const teamA = rosterList.filter(p => p.team === 'A');
+      const teamB = rosterList.filter(p => p.team === 'B');
+      document.getElementById('count-a').textContent = teamA.length;
+      document.getElementById('count-b').textContent = teamB.length;
+      document.getElementById('list-a').innerHTML = teamA.map(p => `<li>• ${p.name}</li>`).join('');
+      document.getElementById('list-b').innerHTML = teamB.map(p => `<li>• ${p.name}</li>`).join('');
+    });
   }
 
   function launchChampionshipMatch() {
