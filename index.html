@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KSHSAA 5v5 Scholars Bowl - Mobile Responsive Cloud Edition</title>
+  <title>KSHSAA 5v5 Scholars Bowl - Championship Cloud Edition</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -148,7 +148,7 @@
       color: var(--text-main);
       padding: 12px;
       border-radius: 8px;
-      font-size: 1rem; /* Prevent auto-zoom on mobile inputs */
+      font-size: 1rem;
       width: 100%;
       box-sizing: border-box;
       margin-bottom: 12px;
@@ -294,7 +294,6 @@
 
     .hidden { display: none !important; }
 
-    /* MOBILE RESPONSIVE MEDIA BREAKPOINTS */
     @media (max-width: 768px) {
       body { padding: 4px; }
       .app-frame { padding: 10px; border-radius: 12px; }
@@ -399,7 +398,7 @@
   <div id="screen-join-name" class="screen">
     <div class="card-panel" style="max-width:400px; margin:20px auto; text-align:center;">
       <h2>Join Room <span id="modal-pin-display" style="color:var(--accent-cyan); font-family:'JetBrains Mono';">----</span></h2>
-      <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Enter your competitor details.</p>
+      <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Tap below to enable audio and enter.</p>
 
       <label class="label-text" style="text-align:left;">Your Competitor Name</label>
       <input type="text" id="modal-competitor-name" class="input-field" placeholder="Enter name...">
@@ -412,7 +411,7 @@
 
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button class="btn-action btn-secondary" onclick="switchScreen('setup')">Cancel</button>
-        <button class="btn-action" onclick="finalizeJoinRoom()">Join 🚀</button>
+        <button class="btn-action" onclick="finalizeJoinRoom()">Join & Enable Sound 🔊</button>
       </div>
     </div>
   </div>
@@ -484,6 +483,11 @@
 
     <div class="timer-track">
       <div class="timer-fill" id="question-timer-bar"></div>
+    </div>
+
+    <!-- AUDIO UNLOCK PROMPT BANNER -->
+    <div id="audio-unlock-banner" class="card-panel hidden" style="text-align:center; background:rgba(14, 165, 233, 0.2); border:1px solid var(--accent-cyan); padding:10px; margin-bottom:10px; cursor:pointer;" onclick="unlockMobileAudio()">
+      🔊 <strong>Tap here to unlock phone audio playback!</strong>
     </div>
 
     <div class="question-display-box" id="active-question-box">
@@ -605,6 +609,16 @@
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
       osc.start(now); osc.stop(now + 0.3);
     }
+  }
+
+  function unlockMobileAudio() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance("Audio enabled.");
+      utterance.volume = 0.05;
+      window.speechSynthesis.speak(utterance);
+    }
+    document.getElementById('audio-unlock-banner').classList.add('hidden');
   }
 
   function speakModeratorAudio(text) {
@@ -760,6 +774,7 @@
   }
 
   function finalizeJoinRoom() {
+    unlockMobileAudio();
     const playerName = document.getElementById('modal-competitor-name').value.trim() || "Competitor";
     const team = document.getElementById('modal-team-select').value;
     currentUser = { name: playerName, team: team, isHost: false };
@@ -869,6 +884,9 @@
           document.getElementById('buzz-in-btn').disabled = currentUser.isHost && currentUser.team === 'Host';
           if (gState.questionText && activeDisplayMode !== 'voice-only') {
             speakModeratorAudio(gState.questionText);
+          }
+          if (!currentUser.isHost && activeAudioTarget === 'all-devices') {
+            document.getElementById('audio-unlock-banner').classList.remove('hidden');
           }
         } else {
           document.getElementById('buzz-in-btn').disabled = true;
