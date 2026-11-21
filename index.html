@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>KSHSAA 5v5 Scholars Bowl - Championship Cloud Edition</title>
+  <title>KSHSAA 5v5 Scholars Bowl - Cloud Championship Edition</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -354,8 +354,8 @@
 
         <label class="label-text">Audio Reading Target</label>
         <select id="audio-target-select" class="input-field">
-          <option value="host-only" selected>Host Computer Only</option>
-          <option value="all-devices">All Player Phones & Host</option>
+          <option value="host-only">Host Computer Only</option>
+          <option value="all-devices" selected>All Player Phones & Host</option>
         </select>
 
         <div class="grid-2" style="gap:8px; margin-bottom:4px;">
@@ -398,7 +398,7 @@
   <div id="screen-join-name" class="screen">
     <div class="card-panel" style="max-width:400px; margin:20px auto; text-align:center;">
       <h2>Join Room <span id="modal-pin-display" style="color:var(--accent-cyan); font-family:'JetBrains Mono';">----</span></h2>
-      <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Tap below to enable audio and enter.</p>
+      <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Enter your competitor details.</p>
 
       <label class="label-text" style="text-align:left;">Your Competitor Name</label>
       <input type="text" id="modal-competitor-name" class="input-field" placeholder="Enter name...">
@@ -411,7 +411,7 @@
 
       <div style="display:flex; gap:8px; margin-top:8px;">
         <button class="btn-action btn-secondary" onclick="switchScreen('setup')">Cancel</button>
-        <button class="btn-action" onclick="finalizeJoinRoom()">Join & Enable Sound 🔊</button>
+        <button class="btn-action" onclick="finalizeJoinRoom()">Join Lobby 🚀</button>
       </div>
     </div>
   </div>
@@ -485,11 +485,6 @@
       <div class="timer-fill" id="question-timer-bar"></div>
     </div>
 
-    <!-- AUDIO UNLOCK PROMPT BANNER -->
-    <div id="audio-unlock-banner" class="card-panel hidden" style="text-align:center; background:rgba(14, 165, 233, 0.2); border:1px solid var(--accent-cyan); padding:10px; margin-bottom:10px; cursor:pointer;" onclick="unlockMobileAudio()">
-      🔊 <strong>Tap here to unlock phone audio playback!</strong>
-    </div>
-
     <div class="question-display-box" id="active-question-box">
       Waiting for host to start packet reading...
     </div>
@@ -534,11 +529,12 @@
   let currentUser = { name: "Moderator", team: "Host", isHost: true };
   let activeRoomPin = "";
   let activeDisplayMode = "reading-stream";
-  let activeAudioTarget = "host-only";
+  let activeAudioTarget = "all-devices";
   let roomListenerRef = null;
   let triviaQADataSet = [];
   let currentStreamTimer = null;
-  let lastSpokenQuestionText = "";
+  let lastSpokenFullText = "";
+  let activeUtterance = null;
 
   let fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -611,35 +607,33 @@
     }
   }
 
-  function unlockMobileAudio() {
+  function unlockAudioEngine() {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance("Audio enabled.");
-      utterance.volume = 0.05;
-      window.speechSynthesis.speak(utterance);
+      const dummy = new SpeechSynthesisUtterance('');
+      window.speechSynthesis.speak(dummy);
     }
-    document.getElementById('audio-unlock-banner').classList.add('hidden');
   }
 
-  function speakModeratorAudio(text) {
+  function speakFullQuestionAudio(text) {
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
     
-    if (activeAudioTarget === 'host-only' && (!currentUser.isHost || currentUser.team !== 'Host')) return;
+    // Evaluate audio target routing rule
+    if (activeAudioTarget === 'host-only' && !currentUser.isHost) return;
 
-    if (activeDisplayMode === 'voice-only') {
-      // Allow voice-only repetition
-    } else if (text === lastSpokenQuestionText) {
-      return;
-    }
-    lastSpokenQuestionText = text;
+    if (text === lastSpokenFullText) return;
+    lastSpokenFullText = text;
 
     window.speechSynthesis.cancel();
     const cleanText = text.replace(/\(\*\)/g, ' ');
-    const utterance = new SpeechSynthesisUtterance(cleanText);
+    activeUtterance = new SpeechSynthesisUtterance(cleanText);
     const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
-    utterance.rate = Math.min(2.5, Math.max(0.55, wpm / 180));
-    window.speechSynthesis.speak(utterance);
+    activeUtterance.rate = Math.min(2.5, Math.max(0.55, wpm / 180));
+    window.speechSynthesis.speak(activeUtterance);
   }
 
   function toggleArenaVoice() {
@@ -684,6 +678,7 @@
   window.addEventListener('DOMContentLoaded', () => { syncTriviaDataset(); });
 
   function switchScreen(screenId) {
+    unlockAudioEngine();
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
     document.getElementById(`screen-${screenId}`).classList.add('active');
@@ -705,6 +700,7 @@
   function toggleContrast() { document.body.classList.toggle('high-contrast'); }
 
   function hostAndOpenRoom() {
+    unlockAudioEngine();
     const hostName = document.getElementById('host-name-input').value.trim() || "Moderator";
     const hostRole = document.getElementById('host-role-select').value;
     activeDisplayMode = document.getElementById('display-mode-select').value;
@@ -740,6 +736,7 @@
         scoreB: 0,
         questionIndex: 0,
         questionText: "Waiting for host to start match...",
+        fullQuestion: "",
         answerline: "",
         buzzPlayer: null
       }
@@ -753,6 +750,7 @@
   }
 
   function verifyRoomPinAndPromptName() {
+    unlockAudioEngine();
     const pin = document.getElementById('join-pin-input').value.trim();
     if (!pin || pin.length !== 4) {
       alert("Please enter a valid 4-digit room PIN.");
@@ -767,14 +765,14 @@
       }
       activeRoomPin = pin;
       activeDisplayMode = roomData.displayMode || "reading-stream";
-      activeAudioTarget = roomData.audioTarget || "host-only";
+      activeAudioTarget = roomData.audioTarget || "all-devices";
       document.getElementById('modal-pin-display').textContent = activeRoomPin;
       switchScreen('join-name');
     });
   }
 
   function finalizeJoinRoom() {
-    unlockMobileAudio();
+    unlockAudioEngine();
     const playerName = document.getElementById('modal-competitor-name').value.trim() || "Competitor";
     const team = document.getElementById('modal-team-select').value;
     currentUser = { name: playerName, team: team, isHost: false };
@@ -847,7 +845,7 @@
       if (!data) return;
 
       activeDisplayMode = data.displayMode || "reading-stream";
-      activeAudioTarget = data.audioTarget || "host-only";
+      activeAudioTarget = data.audioTarget || "all-devices";
 
       const roster = data.roster || [];
       const teamA = roster.filter(p => p.team === 'A');
@@ -882,11 +880,9 @@
 
         if (gState.status === "READING") {
           document.getElementById('buzz-in-btn').disabled = currentUser.isHost && currentUser.team === 'Host';
-          if (gState.questionText && activeDisplayMode !== 'voice-only') {
-            speakModeratorAudio(gState.questionText);
-          }
-          if (!currentUser.isHost && activeAudioTarget === 'all-devices') {
-            document.getElementById('audio-unlock-banner').classList.remove('hidden');
+          
+          if (gState.fullQuestion) {
+            speakFullQuestionAudio(gState.fullQuestion);
           }
         } else {
           document.getElementById('buzz-in-btn').disabled = true;
@@ -929,7 +925,7 @@
     const fullText = q.text.replace(/\(\*\)/g, '');
 
     if (currentStreamTimer) clearInterval(currentStreamTimer);
-    lastSpokenQuestionText = "";
+    lastSpokenFullText = "";
 
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then((snap) => {
       const currentGs = snap.val() || {};
@@ -940,22 +936,19 @@
           status: "READING",
           questionIndex: nextIndex,
           questionText: fullText,
+          fullQuestion: fullText,
           answerline: q.answer,
           buzzPlayer: null
         });
-        setTimeout(() => speakModeratorAudio(fullText), 150);
       } else {
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
           status: "READING",
           questionIndex: nextIndex,
           questionText: "",
+          fullQuestion: fullText,
           answerline: q.answer,
           buzzPlayer: null
         });
-
-        setTimeout(() => {
-          speakModeratorAudio(fullText);
-        }, 150);
 
         const words = fullText.split(' ');
         let currentWordIndex = 0;
