@@ -454,7 +454,7 @@
 
       <div style="display:flex; gap:8px;">
         <button class="btn-action btn-secondary" style="width:auto;" onclick="switchScreen('setup')">← Leave</button>
-        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match 🔒</button>
+        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match (16 Qs) 🔒</button>
       </div>
     </div>
   </div>
@@ -474,7 +474,7 @@
     <div class="roster-grid" id="arena-roster-grid"></div>
 
     <div class="arena-top-bar" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:8px 12px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:700;">
-      <span style="color:var(--accent-cyan);">SYNCED ARENA</span>
+      <span style="color:var(--accent-cyan);">KSHSAA OFFICIAL MATCH ARENA</span>
       <div style="display:flex; align-items:center; gap:8px;">
         <button class="util-btn" id="arena-voice-toggle" onclick="toggleArenaVoice()">🔊 Voice: ON</button>
         <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span>
@@ -496,11 +496,11 @@
     <div class="control-actions-row" id="host-controls-row">
       <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:180px;" onclick="triggerBuzzer()" disabled>🔔 BUZZ IN ([SPACE])</button>
       <button class="btn-action btn-secondary host-only-control hidden" style="width:auto;" onclick="toggleMatchPause()">⏸️</button>
-      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next</button>
+      <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next Q</button>
     </div>
 
     <div id="answer-input-container" class="hidden" style="max-width:100%; margin:0 auto; margin-bottom:10px;">
-      <input type="text" id="competitor-answer-input" class="input-field" placeholder="Type answer & press Enter..." autocomplete="off">
+      <input type="text" id="competitor-answer-input" class="input-field" placeholder="Type answer & press Enter (20s limit)..." autocomplete="off">
       <button class="btn-action" onclick="submitCompetitorAnswer()">Submit Answer</button>
     </div>
 
@@ -533,8 +533,10 @@
   let roomListenerRef = null;
   let triviaQADataSet = [];
   let currentStreamTimer = null;
+  let clientTimerInterval = null;
   let lastSpokenFullText = "";
   let activeUtterance = null;
+  let isReadingFinished = false;
 
   let fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -544,14 +546,22 @@
     { text: "Painted in June 1889 from an asylum window in Saint-Rémy, (*) this Post-Impressionist masterpiece features swirling yellow stars and a cypress tree. Name it.", answer: "The Starry Night" },
     { text: "Stretching along the western coast of South America, this mountain range contains Mount Aconcagua. (*) Name it.", answer: "Andes Mountains" },
     { text: "Introduced by Adam Smith in The Wealth of Nations, this economic metaphor describes the self-regulating nature of a free market. (*) Name it.", answer: "Invisible Hand" },
-    { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles" }
+    { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles" },
+    { text: "Orbiting between Mars and Jupiter, this largest asteroid and dwarf planet was discovered by Giuseppe Piazzi in 1801. (*) Name it.", answer: "Ceres" },
+    { text: "Written in 1849, this short story by Edgar Allan Poe features the narrator burying his wife Madeline alive in the family vault. (*) Name it.", answer: "The Fall of the House of Usher" },
+    { text: "This particle physics standard model boson is responsible for giving other fundamental particles their mass. (*) Name it.", answer: "Higgs Boson" },
+    { text: "Signed in 1215 at Runnymede by King John, (*) this charter limited royal power and protected feudal liberties. Name it.", answer: "Magna Carta" },
+    { text: "This composer wrote the Goldberg Variations and the Brandenburg Concertos. (*) Name him.", answer: "Johann Sebastian Bach" },
+    { text: "Formulated by Albert Einstein in 1915, this theory describes gravity not as a force, but as spacetime curvature. (*) Name it.", answer: "General Relativity" },
+    { text: "Located in East Africa, this rift valley lake system contains the highest biodiversity of fish species of any lake on Earth. (*) Name Lake Malawi or Lake Victoria.", answer: "Lake Victoria" },
+    { text: "This foundational economic principle states that, assuming all else remains constant, an increase in the price of a good leads to an increase in quantity supplied. (*) Name it.", answer: "Law of Supply" }
   ];
 
   async function syncTriviaDataset() {
     const statusMsg = document.getElementById('db-status-msg');
     statusMsg.textContent = "Connecting to Trivia-QA-20K dataset API...";
     try {
-      const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=50');
+      const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=100');
       if (!response.ok) throw new Error('API unreachable');
       const data = await response.json();
       if (data && data.rows && data.rows.length > 0) {
@@ -568,7 +578,7 @@
         throw new Error('Empty');
       }
     } catch (err) {
-      statusMsg.textContent = "Using robust embedded fallback bank (Offline Ready)";
+      statusMsg.textContent = "Using robust embedded 16-question KSHSAA packet bank";
       statusMsg.style.color = "var(--accent-gold)";
     }
   }
@@ -621,8 +631,6 @@
   function speakFullQuestionAudio(text) {
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
-    
-    // Evaluate audio target routing rule
     if (activeAudioTarget === 'host-only' && !currentUser.isHost) return;
 
     if (text === lastSpokenFullText) return;
@@ -633,6 +641,11 @@
     activeUtterance = new SpeechSynthesisUtterance(cleanText);
     const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
     activeUtterance.rate = Math.min(2.5, Math.max(0.55, wpm / 180));
+    
+    activeUtterance.onend = () => {
+      isReadingFinished = true;
+    };
+
     window.speechSynthesis.speak(activeUtterance);
   }
 
@@ -738,7 +751,8 @@
         questionText: "Waiting for host to start match...",
         fullQuestion: "",
         answerline: "",
-        buzzPlayer: null
+        buzzPlayer: null,
+        isInterrupt: false
       }
     };
 
@@ -828,9 +842,12 @@
 
   function launchChampionshipMatch() {
     if (!currentUser.isHost) return;
+    isReadingFinished = false;
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
       status: "READING",
-      questionIndex: 1
+      questionIndex: 1,
+      scoreA: 0,
+      scoreB: 0
     }, () => {
       loadNextQuestionCloud();
     });
@@ -889,7 +906,8 @@
         }
 
         if (gState.buzzPlayer) {
-          document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed!`;
+          const interruptNotice = gState.isInterrupt ? " (INTERRUPTION)" : "";
+          document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed!${interruptNotice}`;
         }
 
         if (gState.status === "ENDED") {
@@ -920,16 +938,25 @@
 
   function loadNextQuestionCloud() {
     if (!currentUser.isHost) return;
-    let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
-    const q = pool[Math.floor(Math.random() * pool.length)];
-    const fullText = q.text.replace(/\(\*\)/g, '');
-
-    if (currentStreamTimer) clearInterval(currentStreamTimer);
-    lastSpokenFullText = "";
-
+    
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then((snap) => {
       const currentGs = snap.val() || {};
-      const nextIndex = (currentGs.questionIndex || 0) + 1;
+      const nextIndex = (currentGs.questionIndex || 0);
+
+      if (nextIndex > 16) {
+        alert("Match complete! All 16 KSHSAA round questions have been read.");
+        dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ status: "ENDED", questionText: "Match Complete. Final Scores Recorded." });
+        return;
+      }
+
+      let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
+      const q = pool[Math.floor(Math.random() * pool.length)];
+      const fullText = q.text.replace(/\(\*\)/g, '');
+
+      if (currentStreamTimer) clearInterval(currentStreamTimer);
+      if (clientTimerInterval) clearInterval(clientTimerInterval);
+      lastSpokenFullText = "";
+      isReadingFinished = false;
 
       if (activeDisplayMode === 'text-only' || activeDisplayMode === 'voice-only') {
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
@@ -938,8 +965,11 @@
           questionText: fullText,
           fullQuestion: fullText,
           answerline: q.answer,
-          buzzPlayer: null
+          buzzPlayer: null,
+          isInterrupt: false
         });
+        isReadingFinished = true;
+        startBuzzTimer();
       } else {
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
           status: "READING",
@@ -947,7 +977,8 @@
           questionText: "",
           fullQuestion: fullText,
           answerline: q.answer,
-          buzzPlayer: null
+          buzzPlayer: null,
+          isInterrupt: false
         });
 
         const words = fullText.split(' ');
@@ -962,49 +993,100 @@
             currentWordIndex++;
           } else {
             clearInterval(currentStreamTimer);
+            isReadingFinished = true;
+            startBuzzTimer();
           }
         }, delayMs);
       }
     });
   }
 
+  function startBuzzTimer() {
+    // 10 seconds to buzz after reading finishes
+    let timeLeft = 10;
+    const bar = document.getElementById('question-timer-bar');
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
+
+    clientTimerInterval = setInterval(() => {
+      timeLeft -= 0.1;
+      if (bar) bar.style.width = Math.max(0, (timeLeft / 10) * 100) + '%';
+      if (timeLeft <= 0) {
+        clearInterval(clientTimerInterval);
+        document.getElementById('status-message-text').textContent = "Time expired to buzz in!";
+      }
+    }, 100);
+  }
+
   function toggleMatchPause() {
     if (!currentUser.isHost) return;
     if (currentStreamTimer) clearInterval(currentStreamTimer);
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
     if ('speechSynthesis' in window) window.speechSynthesis.pause();
   }
 
   function triggerBuzzer() {
     if (currentUser.isHost && currentUser.team === 'Host') return;
     if (currentStreamTimer) clearInterval(currentStreamTimer);
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+
+    // Check if this buzz is an interruption (reading was NOT finished)
+    const isInterrupt = !isReadingFinished;
 
     playSoundEffect('buzz');
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
       status: "BUZZED",
-      buzzPlayer: currentUser.name
+      buzzPlayer: currentUser.name,
+      isInterrupt: isInterrupt
     });
+    
     document.getElementById('answer-input-container').classList.remove('hidden');
     document.getElementById('competitor-answer-input').value = "";
     document.getElementById('competitor-answer-input').focus();
+
+    // 20 seconds answering window
+    let answerTimeLeft = 20;
+    const bar = document.getElementById('question-timer-bar');
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
+    
+    clientTimerInterval = setInterval(() => {
+      answerTimeLeft -= 0.1;
+      if (bar) bar.style.width = Math.max(0, (answerTimeLeft / 20) * 100) + '%';
+      if (answerTimeLeft <= 0) {
+        clearInterval(clientTimerInterval);
+        submitCompetitorAnswer(true); // Auto-submit timeout as incorrect
+      }
+    }, 100);
   }
 
-  function submitCompetitorAnswer() {
-    const guess = document.getElementById('competitor-answer-input').value;
+  function submitCompetitorAnswer(isTimeout = false) {
+    if (clientTimerInterval) clearInterval(clientTimerInterval);
+    const guess = isTimeout ? "" : document.getElementById('competitor-answer-input').value;
     document.getElementById('answer-input-container').classList.add('hidden');
 
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snapshot => {
       const gState = snapshot.val() || {};
-      const isCorrect = evaluateCloseAnswer(guess, gState.answerline || "");
+      const isCorrect = !isTimeout && evaluateCloseAnswer(guess, gState.answerline || "");
 
       let deltaA = gState.scoreA || 0;
+      let deltaB = gState.scoreB || 0;
+
       if (currentUser.team === 'A') {
-        deltaA += isCorrect ? 10 : -5;
+        if (isCorrect) {
+          deltaA += 10;
+        } else {
+          // -5 penalty ONLY if it was an interruption
+          deltaA += gState.isInterrupt ? -5 : 0;
+        }
       }
 
-      let deltaB = gState.scoreB || 0;
       if (currentUser.team === 'B') {
-        deltaB += isCorrect ? 10 : -5;
+        if (isCorrect) {
+          deltaB += 10;
+        } else {
+          // -5 penalty ONLY if it was an interruption
+          deltaB += gState.isInterrupt ? -5 : 0;
+        }
       }
 
       if (isCorrect) playSoundEffect('correct');
@@ -1013,7 +1095,8 @@
       dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
         status: "ENDED",
         scoreA: deltaA,
-        scoreB: deltaB
+        scoreB: deltaB,
+        questionIndex: (gState.questionIndex || 1) + 1
       });
     });
   }
