@@ -387,7 +387,7 @@
 
         <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:10px; border-radius:8px; margin-top:14px;">
           <div style="display:flex; justify-content:space-between; align-items:center;">
-            <span style="font-size:0.75rem; color:var(--text-muted);" id="db-status-msg">Question Source: Standby</span>
+            <span style="font-size:0.75rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA Dataset: Standby</span>
             <button class="util-btn" onclick="syncTriviaDataset()">Sync</button>
           </div>
         </div>
@@ -513,6 +513,8 @@
 </div>
 
 <script>
+  // Firebase client configuration. Protect your database with Firebase Security Rules;
+  // the API key is not a substitute for database authorization.
   const firebaseConfig = {
     apiKey: "AIzaSyA-4QYBAyBWKKiPX40QvgOabJZNKVeQg6m",
     authDomain: "kshsaa-scholars-bowl.firebaseapp.com",
@@ -556,22 +558,22 @@
   let usedQuestionKeys = [];
 
   const fallbackQuestions = [
-    { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby", acceptedAnswers: ["The Great Gatsby"] },
-    { text: "Passed in 1854, this legislation repealed the Missouri Compromise and allowed popular sovereignty, triggering Bleeding Kansas. (*) Name this act.", answer: "Kansas-Nebraska Act", acceptedAnswers: ["Kansas-Nebraska Act"] },
-    { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon", acceptedAnswers: ["Carbon"] },
-    { text: "This geometric theorem states that the square of the hypotenuse equals the sum of the squares of the other two legs in a right triangle. (*) Name it.", answer: "Pythagorean Theorem", acceptedAnswers: ["Pythagorean Theorem"] },
-    { text: "Painted in June 1889 from an asylum window in Saint-Rémy, (*) this Post-Impressionist masterpiece features swirling yellow stars and a cypress tree. Name it.", answer: "The Starry Night", acceptedAnswers: ["The Starry Night"] },
-    { text: "Stretching along the western coast of South America, this mountain range contains Mount Aconcagua. (*) Name it.", answer: "Andes Mountains", acceptedAnswers: ["Andes Mountains"] },
-    { text: "Introduced by Adam Smith in The Wealth of Nations, this economic metaphor describes the self-regulating nature of a free market. (*) Name it.", answer: "Invisible Hand", acceptedAnswers: ["Invisible Hand"] },
-    { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles", acceptedAnswers: ["Heracles", "Hercules"] },
-    { text: "Orbiting between Mars and Jupiter, this largest asteroid and dwarf planet was discovered by Giuseppe Piazzi in 1801. (*) Name it.", answer: "Ceres", acceptedAnswers: ["Ceres"] },
-    { text: "First published in 1839, this short story by Edgar Allan Poe features the narrator visiting the crumbling home of Roderick Usher. (*) Name it.", answer: "The Fall of the House of Usher", acceptedAnswers: ["The Fall of the House of Usher"] },
-    { text: "This particle physics Standard Model boson is associated with the mechanism that gives fundamental particles mass. (*) Name it.", answer: "Higgs Boson", acceptedAnswers: ["Higgs Boson"] },
-    { text: "Signed in 1215 at Runnymede by King John, (*) this charter limited royal power and protected feudal liberties. Name it.", answer: "Magna Carta", acceptedAnswers: ["Magna Carta"] },
-    { text: "This composer wrote the Goldberg Variations and the Brandenburg Concertos. (*) Name him.", answer: "Johann Sebastian Bach", acceptedAnswers: ["Johann Sebastian Bach", "Bach"] },
-    { text: "Formulated by Albert Einstein in 1915, this theory describes gravity not as a force, but as spacetime curvature. (*) Name it.", answer: "General Relativity", acceptedAnswers: ["General Relativity"] },
-    { text: "Located in East Africa, this large lake is shared by Tanzania, Uganda, and Kenya and is a major source of the White Nile. (*) Name it.", answer: "Lake Victoria", acceptedAnswers: ["Lake Victoria"] },
-    { text: "This foundational economic principle states that, assuming all else remains constant, an increase in the price of a good leads to an increase in quantity supplied. (*) Name it.", answer: "Law of Supply", acceptedAnswers: ["Law of Supply"] }
+    { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
+    { text: "Passed in 1854, this legislation repealed the Missouri Compromise and allowed popular sovereignty, triggering Bleeding Kansas. (*) Name this act.", answer: "Kansas-Nebraska Act" },
+    { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon" },
+    { text: "This geometric theorem states that the square of the hypotenuse equals the sum of the squares of the other two legs in a right triangle. (*) Name it.", answer: "Pythagorean Theorem" },
+    { text: "Painted in June 1889 from an asylum window in Saint-Rémy, (*) this Post-Impressionist masterpiece features swirling yellow stars and a cypress tree. Name it.", answer: "The Starry Night" },
+    { text: "Stretching along the western coast of South America, this mountain range contains Mount Aconcagua. (*) Name it.", answer: "Andes Mountains" },
+    { text: "Introduced by Adam Smith in The Wealth of Nations, this economic metaphor describes the self-regulating nature of a free market. (*) Name it.", answer: "Invisible Hand" },
+    { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles" },
+    { text: "Orbiting between Mars and Jupiter, this largest asteroid and dwarf planet was discovered by Giuseppe Piazzi in 1801. (*) Name it.", answer: "Ceres" },
+    { text: "First published in 1839, this short story by Edgar Allan Poe features the narrator visiting the crumbling home of Roderick Usher. (*) Name it.", answer: "The Fall of the House of Usher" },
+    { text: "This particle physics Standard Model boson is associated with the mechanism that gives fundamental particles mass. (*) Name it.", answer: "Higgs Boson" },
+    { text: "Signed in 1215 at Runnymede by King John, (*) this charter limited royal power and protected feudal liberties. Name it.", answer: "Magna Carta" },
+    { text: "This composer wrote the Goldberg Variations and the Brandenburg Concertos. (*) Name him.", answer: "Johann Sebastian Bach" },
+    { text: "Formulated by Albert Einstein in 1915, this theory describes gravity not as a force, but as spacetime curvature. (*) Name it.", answer: "General Relativity" },
+    { text: "Located in East Africa, this large lake is shared by Tanzania, Uganda, and Kenya and is a major source of the White Nile. (*) Name it.", answer: "Lake Victoria" },
+    { text: "This foundational economic principle states that, assuming all else remains constant, an increase in the price of a good leads to an increase in quantity supplied. (*) Name it.", answer: "Law of Supply" }
   ];
 
   function setDatasetStatus(message, color) {
@@ -581,6 +583,8 @@
     if (color) statusMsg.style.color = color;
   }
 
+  // Small CSV parser that correctly handles quoted commas, escaped quotes, and
+  // newlines inside quoted fields. The source file is only about 1.9 MB.
   function parseCSV(csvText) {
     const rows = [];
     let row = [];
@@ -598,12 +602,8 @@
       } else if (char === "," && !inQuotes) {
         row.push(field);
         field = "";
-      } else if ((char === "
-" || char === "
-") && !inQuotes) {
-        if (char === "
-" && csvText[i + 1] === "
-") i++;
+      } else if ((char === "\n" || char === "\r") && !inQuotes) {
+        if (char === "\r" && csvText[i + 1] === "\n") i++;
         row.push(field);
         if (row.some(value => value.trim() !== "")) rows.push(row);
         row = [];
@@ -622,6 +622,8 @@
   async function syncTriviaDataset() {
     setDatasetStatus("Downloading the 20,000-question Trivia-QA CSV...");
     try {
+      // This dataset is published as CSV. Its /rows viewer endpoint is not
+      // suitable because the dataset has no Parquet export.
       const csvUrl = "https://huggingface.co/datasets/prajwalmani/trivia-qa-20k/resolve/main/trivia_20k.csv";
       const response = await fetch(csvUrl);
       if (!response.ok) throw new Error("Dataset download returned HTTP " + response.status);
@@ -629,7 +631,7 @@
       const rows = parseCSV(csvText);
       if (rows.length < 2) throw new Error("The downloaded CSV did not contain question rows");
 
-      const headers = rows[0].map(value => value.replace(/^﻿/, "").trim().toLowerCase());
+      const headers = rows[0].map(value => value.replace(/^\uFEFF/, "").trim().toLowerCase());
       const questionColumn = headers.indexOf("question");
       const answerColumn = headers.indexOf("answer");
       if (questionColumn < 0 || answerColumn < 0) throw new Error("CSV is missing the question or answer column");
@@ -650,73 +652,9 @@
       if (!triviaQADataSet.length) throw new Error("No valid question-answer pairs were found in the CSV");
       setDatasetStatus(`Loaded ${triviaQADataSet.length.toLocaleString()} unique questions from Trivia-QA.`, "var(--team-green-base)");
     } catch (err) {
-      console.warn("Trivia-QA download failed; using fallback questions:", err);
+      console.warn("Trivia-QA download failed; using embedded questions:", err);
       triviaQADataSet = [];
-      setDatasetStatus("Dataset unavailable. Using fallback packet.", "var(--accent-gold)");
-    }
-  }
-
-  // --- AI Question Generation Integration ---
-  async function generateAIQuestion(subjectHint = "high school academic competition") {
-    setDatasetStatus("Generating fresh AI question...", "var(--accent-cyan)");
-    try {
-      const prompt = `You are an expert quiz bowl question writer for KSHSAA 5v5 Scholars Bowl competitions. Write one pyramidal tossup question suitable for high school academic competition on the subject or theme: "${subjectHint}".
-      The question must include a tossup lead-in with clues, and conclude with the exact phrase "(*) Name this..." or "(*) Name it." followed by the answer.
-      Format your response strictly as valid JSON with no markdown block around it if possible, or parseable JSON containing exactly two keys:
-      - "text": The full question text including the "(*)" marker.
-      - "answer": The canonical short answer.
-      - "acceptedAnswers": An array of acceptable variant answers.`;
-
-      // Using a reliable public LLM endpoint or a simulated robust prompt approach. 
-      // Here we can use a standard fetch to a free/public AI endpoint or Google Gemini API if key provided, 
-      // or standard WebLLM/fetch proxy. Alternatively, we can use a reliable hosted serverless function or HuggingFace Inference API if desired,
-      // or an OpenAI-compatible endpoint. Since this runs entirely client-side in the browser, let's provide a robust fetch to a standard LLM API 
-      // or a reliable serverless worker endpoint, or fallback to an intelligent algorithmic generator / HuggingFace Router model.
-      
-      // Let's use the HuggingFace Serverless Inference API with a fast open model (e.g., Qwen or Llama 3) for zero-config client-side AI question generation!
-      const response = await fetch("https://api-inference.huggingface.co/models/Qwen/Qwen2.5-72B-Instruct/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          model: "Qwen/Qwen2.5-72B-Instruct",
-          messages: [
-            { role: "system", content: "You are a precise JSON-only assistant that outputs quiz bowl questions." },
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 300,
-          temperature: 0.7
-        })
-      });
-
-      if (!response.ok) throw new Error("AI generation request failed with status " + response.status);
-      const data = await response.json();
-      const content = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-      if (!content) throw new Error("Empty response from AI model");
-
-      // Extract JSON from content
-      let jsonStr = content.trim();
-      if (jsonStr.startsWith("```json")) {
-        jsonStr = jsonStr.replace(/^```json/, "").replace(/```$/, "").trim();
-      } else if (jsonStr.startsWith("```")) {
-        jsonStr = jsonStr.replace(/^```/, "").replace(/```$/, "").trim();
-      }
-      
-      const parsed = JSON.parse(jsonStr);
-      if (!parsed.text || !parsed.answer) throw new Error("Invalid AI question structure");
-
-      setDatasetStatus("AI Question successfully generated!", "var(--team-green-base)");
-      return {
-        text: String(parsed.text).trim(),
-        answer: String(parsed.answer).trim(),
-        acceptedAnswers: Array.isArray(parsed.acceptedAnswers) ? parsed.acceptedAnswers : [parsed.answer]
-      };
-    } catch (err) {
-      console.warn("AI generation failed, falling back to dataset/fallback:", err);
-      setDatasetStatus("AI generation fallback to standard pool.", "var(--accent-gold)");
-      const pool = triviaQADataSet.length ? triviaQADataSet : fallbackQuestions;
-      return pool[Math.floor(Math.random() * pool.length)];
+      setDatasetStatus("Dataset unavailable. Using the embedded 16-question fallback packet.", "var(--accent-gold)");
     }
   }
 
@@ -881,6 +819,8 @@
     select.value = localTtsEnabled ? "on" : "off";
     btn.textContent = localTtsEnabled ? "🔊 Voice: ON" : "🔇 Voice: OFF";
     if (!localTtsEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+    // The host controls the official reading clock. Muting on the host counts as
+    // completing its audio portion so the buzz window cannot become stuck.
     if (!localTtsEnabled && currentUser.isHost && readingParts && !readingParts.speechFinished) {
       readingParts.speechFinished = true;
       maybeOpenBuzzPeriod(readingParts.runKey);
@@ -891,7 +831,7 @@
     return String(value || "")
       .toLowerCase()
       .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
+      .replace(/[\u0300-\u036f]/g, "")
       .replace(/^[\s"'“”‘’]*(the|a|an)\s+/i, "")
       .replace(/[^a-z0-9]+/g, " ")
       .trim()
@@ -1321,13 +1261,13 @@
         return;
       }
 
-      // Fetch AI generated question or fallback
-      const categories = ["American Literature", "World History", "Organic Chemistry", "Calculus and Physics", "Fine Arts and Music", "World Geography", "Economics and Government", "Mythology and Classics"];
-      const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-      const questionObj = await generateAIQuestion(randomCategory);
-
-      const fullText = String(questionObj.text || "Question").replace(/\(\*\)/g, "").trim();
-      const acceptedAnswers = Array.isArray(questionObj.acceptedAnswers) && questionObj.acceptedAnswers.length ? questionObj.acceptedAnswers : [questionObj.answer || "Unknown"];
+      const pool = triviaQADataSet.length ? triviaQADataSet : fallbackQuestions;
+      const used = Array.isArray(current.usedQuestionKeys) ? current.usedQuestionKeys : [];
+      let available = pool.filter(q => !used.includes(String(q.text).toLowerCase()));
+      if (!available.length) available = pool;
+      const question = available[Math.floor(Math.random() * available.length)];
+      const fullText = String(question.text || "Question").replace(/\(\*\)/g, "").trim();
+      const acceptedAnswers = Array.isArray(question.acceptedAnswers) && question.acceptedAnswers.length ? question.acceptedAnswers : [question.answer || "Unknown"];
       const voiceEnabled = document.getElementById("tts-select").value === "on";
       const readingStarted = activeDisplayMode !== "reading-stream";
       const questionId = makeClientId();
@@ -1346,7 +1286,7 @@
         buzzTeam: null,
         isInterrupt: false,
         attemptedTeams: {},
-        usedQuestionKeys: [...(Array.isArray(current.usedQuestionKeys) ? current.usedQuestionKeys : []), String(questionObj.text).toLowerCase()],
+        usedQuestionKeys: [...used, String(question.text).toLowerCase()],
         readingStarted,
         readingFinished: false,
         streamWordIndex: 0,
@@ -1439,6 +1379,8 @@
             gs.status = "ENDED";
             gs.reason = "❌ Both teams answered incorrectly. Correct Answer:";
           } else if (gs.isInterrupt) {
+            // Restart the read after an interrupted incorrect answer. The team
+            // that already tried is locked out; the other team can still buzz.
             gs.status = "READING";
             gs.questionText = "";
             gs.readingStarted = activeDisplayMode !== "reading-stream";
