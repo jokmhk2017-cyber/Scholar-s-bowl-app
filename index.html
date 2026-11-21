@@ -1,2353 +1,1172 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>KSHSAA 5v5 Scholars Bowl - Cloud Championship Edition</title>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
-
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-
   
-
   <!-- Firebase App SDK & Realtime Database SDK (Compat Versions) -->
-
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-
-
   <style>
-
     :root {
-
       --bg-base: #090d16;
-
       --bg-surface: #111827;
-
       --bg-card: #1f293d;
-
       --border-subtle: rgba(255, 255, 255, 0.08);
-
       --border-focus: rgba(56, 189, 248, 0.4);
-
       --accent-cyan: #0ea5e9;
-
       --accent-glow: rgba(14, 165, 233, 0.25);
-
       --team-red-base: #f43f5e;
-
       --team-green-base: #10b981;
-
       --accent-gold: #f59e0b;
-
       --text-main: #f1f5f9;
-
       --text-muted: #94a3b8;
-
     }
-
-
 
     body.high-contrast {
-
       --bg-base: #000000;
-
       --bg-surface: #0a0a0a;
-
       --bg-card: #141414;
-
       --border-subtle: #ffffff;
-
       --accent-cyan: #00ffff;
-
       --text-main: #ffffff;
-
       --text-muted: #e2e8f0;
-
     }
-
-
 
     body {
-
       background-color: var(--bg-base);
-
       color: var(--text-main);
-
       font-family: 'Plus Jakarta Sans', sans-serif;
-
       margin: 0;
-
       padding: 12px 8px;
-
       display: flex;
-
       justify-content: center;
-
       align-items: center;
-
       min-height: 100vh;
-
       box-sizing: border-box;
-
     }
-
-
 
     .app-frame {
-
       background-color: var(--bg-surface);
-
       width: 100%;
-
       max-width: 1100px;
-
       border-radius: 16px;
-
       border: 1px solid var(--border-subtle);
-
       box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.7);
-
       padding: 16px;
-
       box-sizing: border-box;
-
     }
-
-
 
     .app-header {
-
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
       border-bottom: 1px solid var(--border-subtle);
-
       padding-bottom: 14px;
-
       margin-bottom: 16px;
-
       gap: 12px;
-
       flex-wrap: wrap;
-
     }
-
-
 
     .brand-title {
-
       font-size: 1.1rem;
-
       font-weight: 800;
-
       letter-spacing: -0.02em;
-
       color: var(--text-main);
-
       display: flex;
-
       align-items: center;
-
       gap: 8px;
-
     }
-
-
 
     .brand-title span { color: var(--accent-cyan); }
 
-
-
     .nav-tabs-group { display: flex; gap: 6px; }
 
-
-
     .tab-btn {
-
       background: var(--bg-card);
-
       color: var(--text-muted);
-
       border: 1px solid var(--border-subtle);
-
       padding: 6px 12px;
-
       border-radius: 8px;
-
       font-weight: 600;
-
       font-size: 0.8125rem;
-
       cursor: pointer;
-
     }
-
-
 
     .tab-btn.active {
-
       background: var(--accent-cyan);
-
       color: #090d16;
-
       border-color: var(--accent-cyan);
-
     }
-
-
 
     .utility-group { display: flex; gap: 6px; }
 
-
-
     .util-btn {
-
       background: var(--bg-card);
-
       color: var(--text-main);
-
       border: 1px solid var(--border-subtle);
-
       padding: 6px 10px;
-
       border-radius: 6px;
-
       font-size: 0.75rem;
-
       font-weight: 600;
-
       cursor: pointer;
-
     }
-
-
 
     .screen { display: none; }
-
     .screen.active { display: block; }
 
-
-
     .grid-2 {
-
       display: grid;
-
       grid-template-columns: 1fr 1fr;
-
       gap: 14px;
-
     }
-
-
 
     .card-panel {
-
       background-color: var(--bg-card);
-
       border: 1px solid var(--border-subtle);
-
       border-radius: 12px;
-
       padding: 16px;
-
       box-sizing: border-box;
-
     }
-
-
 
     .card-panel h2 {
-
       font-size: 1rem;
-
       font-weight: 700;
-
       margin-top: 0;
-
       margin-bottom: 12px;
-
       color: var(--text-main);
-
     }
-
-
 
     .input-field, select {
-
       background: var(--bg-base);
-
       border: 1px solid var(--border-subtle);
-
       color: var(--text-main);
-
       padding: 12px;
-
       border-radius: 8px;
-
       font-size: 1rem;
-
       width: 100%;
-
       box-sizing: border-box;
-
       margin-bottom: 12px;
-
       font-family: inherit;
-
       outline: none;
-
     }
-
-
 
     .label-text {
-
       font-size: 0.75rem;
-
       font-weight: 600;
-
       color: var(--text-muted);
-
       margin-bottom: 4px;
-
       display: block;
-
       text-transform: uppercase;
-
       letter-spacing: 0.04em;
-
     }
-
-
 
     .btn-action {
-
       background: var(--accent-cyan);
-
       color: #090d16;
-
       border: none;
-
       padding: 14px 20px;
-
       border-radius: 10px;
-
       font-weight: 700;
-
       font-size: 1rem;
-
       cursor: pointer;
-
       width: 100%;
-
       box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
-
       box-sizing: border-box;
-
     }
-
-
 
     .btn-secondary { background: #334155; color: white; box-shadow: none; }
 
-
-
     .arena-scoreboard {
-
       display: grid;
-
       grid-template-columns: 1fr auto 1fr;
-
       align-items: center;
-
       background: var(--bg-card);
-
       border: 1px solid var(--border-subtle);
-
       padding: 10px 14px;
-
       border-radius: 10px;
-
       margin-bottom: 12px;
-
       font-family: 'JetBrains Mono', monospace;
-
       gap: 6px;
-
     }
-
-
 
     .team-badge {
-
       font-weight: 700;
-
       font-size: 0.875rem;
-
       display: flex;
-
       align-items: center;
-
       gap: 6px;
-
     }
-
-
 
     .team-badge.red { color: var(--team-red-base); }
-
     .team-badge.green { color: var(--team-green-base); }
-
     .score-digits { font-size: 1.25rem; font-weight: 800; }
 
-
-
     .match-context-tag {
-
       background: rgba(245, 158, 11, 0.15);
-
       color: var(--accent-gold);
-
       border: 1px solid rgba(245, 158, 11, 0.3);
-
       padding: 4px 8px;
-
       border-radius: 12px;
-
       font-size: 0.65rem;
-
       font-weight: 700;
-
       text-transform: uppercase;
-
       text-align: center;
-
     }
-
-
 
     .question-display-box {
-
       background: var(--bg-base);
-
       border: 2px solid var(--border-subtle);
-
       border-radius: 12px;
-
       padding: 16px;
-
       min-height: 140px;
-
       font-size: var(--q-font-size, 1.05rem);
-
       line-height: 1.6;
-
       margin-bottom: 12px;
-
       box-sizing: border-box;
-
       word-break: break-word;
-
     }
-
-
 
     .timer-track {
-
       width: 100%;
-
       height: 6px;
-
       background: var(--bg-base);
-
       border-radius: 3px;
-
       overflow: hidden;
-
       margin-bottom: 12px;
-
     }
-
-
 
     .timer-fill {
-
       height: 100%;
-
       width: 100%;
-
       background: var(--accent-gold);
-
       transition: width 0.1s linear;
-
     }
-
-
 
     .status-alert-bar {
-
       background: var(--bg-card);
-
       border-left: 4px solid var(--accent-gold);
-
       padding: 10px 14px;
-
       border-radius: 8px;
-
       font-weight: 600;
-
       font-size: 0.875rem;
-
       color: var(--accent-gold);
-
       margin-bottom: 12px;
-
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
     }
-
-
 
     .roster-grid {
-
       display: grid;
-
       grid-template-columns: repeat(5, 1fr);
-
       gap: 6px;
-
       margin-bottom: 12px;
-
     }
-
-
 
     .desk-podium {
-
       background: var(--bg-base);
-
       border: 1px solid var(--border-subtle);
-
       border-radius: 6px;
-
       padding: 6px 4px;
-
       text-align: center;
-
       font-size: 0.7rem;
-
       overflow: hidden;
-
       text-overflow: ellipsis;
-
       white-space: nowrap;
-
     }
-
-
 
     .desk-podium.team-a { border-left: 3px solid var(--team-red-base); }
-
     .desk-podium.team-b { border-left: 3px solid var(--team-green-base); }
 
-
-
     .control-actions-row {
-
       display: flex;
-
       gap: 8px;
-
       justify-content: center;
-
       flex-wrap: wrap;
-
       margin-bottom: 12px;
-
     }
-
-
 
     .hidden { display: none !important; }
 
-
-
     @media (max-width: 768px) {
-
       body { padding: 4px; }
-
       .app-frame { padding: 10px; border-radius: 12px; }
-
       .grid-2 { grid-template-columns: 1fr; gap: 12px; }
-
       .roster-grid { grid-template-columns: repeat(3, 1fr); }
-
       .app-header { flex-direction: column; align-items: stretch; gap: 8px; }
-
       .nav-tabs-group { justify-content: space-between; }
-
       .utility-group { justify-content: flex-end; }
-
       .arena-scoreboard { padding: 8px 10px; }
-
       .team-badge { font-size: 0.75rem; }
-
       .score-digits { font-size: 1.1rem; }
-
       .btn-action { padding: 14px; font-size: 1rem; }
-
     }
-
   </style>
-
 </head>
-
 <body>
 
-
-
 <div class="app-frame">
-
   <!-- TOP NAVIGATION HEADER -->
-
   <header class="app-header">
-
     <div class="brand-title">
-
       <span>🏆</span> KSHSAA 5v5 <span>Cloud Arena</span>
-
     </div>
-
     <div class="nav-tabs-group">
-
       <button class="tab-btn active" onclick="switchScreen('setup')">Gateway</button>
-
       <button class="tab-btn" onclick="switchScreen('arena')" id="nav-arena-tab" style="opacity:0.5; pointer-events:none;">Arena</button>
-
     </div>
-
     <div class="utility-group">
-
       <button class="util-btn" onclick="adjustFontSize(-0.1)">A-</button>
-
       <button class="util-btn" onclick="adjustFontSize(0.1)">A+</button>
-
       <button class="util-btn" onclick="toggleContrast()">Contrast</button>
-
     </div>
-
   </header>
 
-
-
   <!-- SCREEN 1: ROOM GATEWAY -->
-
   <div id="screen-setup" class="screen active">
-
     <div class="grid-2">
-
       <div class="card-panel">
-
         <h2>Host a New Room</h2>
-
         <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0;">Create a master session. Configure audio and display settings.</p>
-
         
-
         <label class="label-text">Host Name / Moderator</label>
-
         <input type="text" id="host-name-input" class="input-field" value="Moderator">
 
-
-
         <label class="label-text">Host Role in Room</label>
-
         <select id="host-role-select" class="input-field">
-
           <option value="spectator">Spectator / Moderator (No Desk)</option>
-
           <option value="player-a">Play as Team A Competitor</option>
-
           <option value="player-b">Play as Team B Competitor</option>
-
         </select>
-
-
 
         <label class="label-text">Display Mode Setting</label>
-
         <select id="display-mode-select" class="input-field">
-
           <option value="reading-stream">Scrolling Text Stream (Word-by-Word)</option>
-
           <option value="text-only">Instant Full Question Text</option>
-
           <option value="voice-only">Voice Only (Audio Moderator, Hidden Text)</option>
-
         </select>
-
-
 
         <label class="label-text">Audio Reading Target</label>
-
         <select id="audio-target-select" class="input-field">
-
           <option value="host-only">Host Computer Only</option>
-
           <option value="all-devices" selected>All Player Phones & Host</option>
-
         </select>
 
-
-
         <div class="grid-2" style="gap:8px; margin-bottom:4px;">
-
           <div>
-
             <label class="label-text">Speed: <span id="wpm-display">220</span> WPM</label>
-
             <input type="range" id="wpm-slider" min="120" max="380" value="220" style="width:100%; accent-color:var(--accent-cyan);" oninput="document.getElementById('wpm-display').textContent=this.value">
-
           </div>
-
           <div>
-
             <label class="label-text">AI Reader Voice</label>
-
             <select id="tts-select" class="input-field" style="margin-bottom:0;">
-
               <option value="on" selected>On (Speech Audio)</option>
-
               <option value="off">Off (Silent)</option>
-
             </select>
-
           </div>
-
         </div>
 
-
-
         <button class="btn-action" style="margin-top:12px;" onclick="hostAndOpenRoom()">Host & Enter Lobby 🚀</button>
-
       </div>
 
-
-
       <div class="card-panel">
-
         <h2>Join Room</h2>
-
         <p style="font-size:0.8rem; color:var(--text-muted); margin-top:0;">Enter an active 4-digit room code to join as a competitor.</p>
 
-
-
         <label class="label-text">Enter 4-Digit Room PIN</label>
-
         <input type="text" id="join-pin-input" class="input-field" placeholder="e.g. 4829" maxlength="4" style="font-family:'JetBrains Mono'; font-size:1.2rem; letter-spacing:2px; text-align:center;">
-
-
 
         <button class="btn-action btn-secondary" onclick="verifyRoomPinAndPromptName()">Enter Room →</button>
 
-
-
         <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:10px; border-radius:8px; margin-top:14px;">
-
           <div style="display:flex; justify-content:space-between; align-items:center;">
-
             <span style="font-size:0.75rem; color:var(--text-muted);" id="db-status-msg">Trivia-QA Dataset: Standby</span>
-
             <button class="util-btn" onclick="syncTriviaDataset()">Sync</button>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
-
   </div>
-
-
 
   <!-- SCREEN 1.5: JOIN NAME MODAL -->
-
   <div id="screen-join-name" class="screen">
-
     <div class="card-panel" style="max-width:400px; margin:20px auto; text-align:center;">
-
       <h2>Join Room <span id="modal-pin-display" style="color:var(--accent-cyan); font-family:'JetBrains Mono';">----</span></h2>
-
       <p style="font-size:0.8rem; color:var(--text-muted);">Room verified! Enter your competitor details.</p>
 
-
-
       <label class="label-text" style="text-align:left;">Your Competitor Name</label>
-
       <input type="text" id="modal-competitor-name" class="input-field" placeholder="Enter name...">
 
-
-
       <label class="label-text" style="text-align:left;">Assign Team</label>
-
       <select id="modal-team-select" class="input-field">
-
         <option value="A">Team A (Red)</option>
-
         <option value="B">Team B (Green)</option>
-
       </select>
 
-
-
       <div style="display:flex; gap:8px; margin-top:8px;">
-
         <button class="btn-action btn-secondary" onclick="switchScreen('setup')">Cancel</button>
-
         <button class="btn-action" onclick="finalizeJoinRoom()">Join Lobby 🚀</button>
-
       </div>
-
     </div>
-
   </div>
-
-
 
   <!-- SCREEN 1B: LOBBY -->
-
   <div id="screen-lobby" class="screen">
-
     <div class="card-panel" style="max-width:700px; margin:0 auto;">
-
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-subtle); padding-bottom:10px; margin-bottom:14px;">
-
         <h2 style="margin:0;">Lobby Management</h2>
-
         <div style="font-family:'JetBrains Mono'; font-weight:700; color:var(--accent-gold); font-size:0.9rem;">PIN: <span id="lobby-room-code-tag">----</span></div>
-
       </div>
-
-
 
       <div class="grid-2" style="gap:10px; margin-bottom:14px;" id="host-roster-controls">
-
         <div>
-
           <label class="label-text">Add Roster Member</label>
-
           <input type="text" id="lobby-new-name" class="input-field" placeholder="Name...">
-
           <div style="display:flex; gap:6px;">
-
             <select id="lobby-new-team" class="input-field" style="margin-bottom:0;">
-
               <option value="A">Team A</option>
-
               <option value="B">Team B</option>
-
             </select>
-
             <button class="btn-action" style="width:auto; margin-bottom:0; padding:8px 12px;" onclick="addRosterMember()">Add</button>
-
           </div>
-
         </div>
-
         <div style="display:flex; flex-direction:column; justify-content:flex-end;">
-
           <button class="btn-action btn-secondary" onclick="populateBotRoster()">🤖 Populate AI Bots</button>
-
         </div>
-
       </div>
-
-
 
       <div class="grid-2" style="gap:10px; margin-bottom:16px;">
-
         <div style="background:var(--bg-base); padding:10px; border-radius:8px; border:1px solid rgba(244,63,94,0.3);">
-
           <strong style="color:var(--team-red-base); font-size:0.8rem;">TEAM A RED (<span id="count-a">0</span>/5)</strong>
-
           <ul id="list-a" style="list-style:none; padding:0; margin:6px 0 0 0; font-size:0.8rem; color:var(--text-muted);"></ul>
-
         </div>
-
         <div style="background:var(--bg-base); padding:10px; border-radius:8px; border:1px solid rgba(16,185,129,0.3);">
-
           <strong style="color:var(--team-green-base); font-size:0.8rem;">TEAM B GREEN (<span id="count-b">0</span>/5)</strong>
-
           <ul id="list-b" style="list-style:none; padding:0; margin:6px 0 0 0; font-size:0.8rem; color:var(--text-muted);"></ul>
-
         </div>
-
       </div>
-
-
 
       <div style="display:flex; gap:8px;">
-
         <button class="btn-action btn-secondary" style="width:auto;" onclick="switchScreen('setup')">← Leave</button>
-
         <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match (16 Qs) 🔒</button>
-
       </div>
-
     </div>
-
   </div>
 
-
-
   <!-- SCREEN 2: LIVE MATCH ARENA -->
-
   <div id="screen-arena" class="screen">
-
     <div class="arena-scoreboard">
-
       <div class="team-badge red">
-
         <span>🔴</span> A: <span class="score-digits" id="score-a">0</span>
-
       </div>
-
       <div class="match-context-tag" id="rotation-status-badge">Q 1 / 16</div>
-
       <div class="team-badge green" style="justify-content:flex-end;">
-
         B: <span class="score-digits" id="score-b">0</span> <span>🟢</span>
-
       </div>
-
     </div>
-
-
 
     <div class="roster-grid" id="arena-roster-grid"></div>
 
-
-
     <div class="arena-top-bar" style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-card); padding:8px 12px; border-radius:8px; margin-bottom:10px; font-size:0.75rem; font-weight:700;">
-
       <span style="color:var(--accent-cyan);">KSHSAA OFFICIAL MATCH ARENA</span>
-
       <div style="display:flex; align-items:center; gap:8px;">
-
         <button class="util-btn" id="arena-voice-toggle" onclick="toggleArenaVoice()">🔊 Voice: ON</button>
-
         <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span>
-
       </div>
-
     </div>
-
-
 
     <div class="timer-track">
-
       <div class="timer-fill" id="question-timer-bar"></div>
-
     </div>
-
-
 
     <div class="question-display-box" id="active-question-box">
-
       Waiting for host to start packet reading...
-
     </div>
-
-
 
     <div class="status-alert-bar" id="arena-status-banner">
-
       <span id="status-message-text">[Space] Buzz | [Enter] Submit | [N] Next</span>
-
     </div>
-
-
 
     <div class="control-actions-row" id="host-controls-row">
-
-      <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:180px;" onclick="triggerBuzzer()">🔔 BUZZ IN ([SPACE])</button>
-
+      <button class="btn-action" id="buzz-in-btn" style="background:var(--team-red-base); color:white; min-width:180px;" onclick="triggerBuzzer()" disabled>🔔 BUZZ IN ([SPACE])</button>
       <button class="btn-action btn-secondary host-only-control hidden" style="width:auto;" onclick="toggleMatchPause()">⏸️</button>
-
       <button class="btn-action btn-secondary host-only-control hidden" style="width:auto; background:var(--team-green-base); color:white;" onclick="loadNextQuestionCloud()">⏭️ Next Q</button>
-
     </div>
-
-
 
     <div id="answer-input-container" class="hidden" style="max-width:100%; margin:0 auto; margin-bottom:10px;">
-
       <input type="text" id="competitor-answer-input" class="input-field" placeholder="Type answer & press Enter (20s limit)..." autocomplete="off">
-
       <button class="btn-action" onclick="submitCompetitorAnswer()">Submit Answer</button>
-
     </div>
-
-
 
     <div id="answerline-panel" class="card-panel hidden" style="margin-top:10px;">
-
       <h2 style="margin-bottom:4px; font-size:0.85rem;" id="answerline-heading-text">Official Answerline</h2>
-
       <div style="font-family:'JetBrains Mono'; color:var(--accent-gold); font-weight:700; font-size:0.9rem;" id="resolved-answerline-text"></div>
-
     </div>
-
   </div>
-
 </div>
 
-
-
 <script>
-
   const firebaseConfig = {
-
     apiKey: "AIzaSyA-4QYBAyBWKKiPX40QvgOabJZNKVeQg6m",
-
     authDomain: "kshsaa-scholars-bowl.firebaseapp.com",
-
     databaseURL: "https://kshsaa-scholars-bowl-default-rtdb.firebaseio.com",
-
     projectId: "kshsaa-scholars-bowl",
-
     storageBucket: "kshsaa-scholars-bowl.appspot.com",
-
     messagingSenderId: "90098230367",
-
     appId: "1:90098230367:web:e4f54dee42c52a572067ea",
-
     measurementId: "G-F4Y0FD1RSM"
-
   };
 
-
-
   firebase.initializeApp(firebaseConfig);
-
   const dbRef = firebase.database();
 
-
-
   let currentUser = { name: "Moderator", team: "Host", isHost: true };
-
   let activeRoomPin = "";
-
   let activeDisplayMode = "reading-stream";
-
   let activeAudioTarget = "all-devices";
-
   let roomListenerRef = null;
-
   let triviaQADataSet = [];
-
   let currentStreamTimer = null;
-
   let clientTimerInterval = null;
-
   let lastSpokenFullText = "";
-
   let activeUtterance = null;
-
   let isReadingFinished = false;
 
-
-
   let fallbackQuestions = [
-
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
-
     { text: "Passed in 1854, this legislation repealed the Missouri Compromise and allowed popular sovereignty, triggering Bleeding Kansas. (*) Name this act.", answer: "Kansas-Nebraska Act" },
-
     { text: "This chemical element's allotropes include buckminsterfullerene and graphene, and its isotope mass 12 defines the atomic mass unit. (*) Name atomic number 6.", answer: "Carbon" },
-
     { text: "This geometric theorem states that the square of the hypotenuse equals the sum of the squares of the other two legs in a right triangle. (*) Name it.", answer: "Pythagorean Theorem" },
-
     { text: "Painted in June 1889 from an asylum window in Saint-Rémy, (*) this Post-Impressionist masterpiece features swirling yellow stars and a cypress tree. Name it.", answer: "The Starry Night" },
-
     { text: "Stretching along the western coast of South America, this mountain range contains Mount Aconcagua. (*) Name it.", answer: "Andes Mountains" },
-
     { text: "Introduced by Adam Smith in The Wealth of Nations, this economic metaphor describes the self-regulating nature of a free market. (*) Name it.", answer: "Invisible Hand" },
-
     { text: "This Greek hero completed twelve labors including slaying the Nemean Lion and capturing Cerberus. (*) Name him.", answer: "Heracles" },
-
     { text: "Orbiting between Mars and Jupiter, this largest asteroid and dwarf planet was discovered by Giuseppe Piazzi in 1801. (*) Name it.", answer: "Ceres" },
-
     { text: "Written in 1849, this short story by Edgar Allan Poe features the narrator burying his wife Madeline alive in the family vault. (*) Name it.", answer: "The Fall of the House of Usher" },
-
     { text: "This particle physics standard model boson is responsible for giving other fundamental particles their mass. (*) Name it.", answer: "Higgs Boson" },
-
     { text: "Signed in 1215 at Runnymede by King John, (*) this charter limited royal power and protected feudal liberties. Name it.", answer: "Magna Carta" },
-
     { text: "This composer wrote the Goldberg Variations and the Brandenburg Concertos. (*) Name him.", answer: "Johann Sebastian Bach" },
-
     { text: "Formulated by Albert Einstein in 1915, this theory describes gravity not as a force, but as spacetime curvature. (*) Name it.", answer: "General Relativity" },
-
     { text: "Located in East Africa, this rift valley lake system contains the highest biodiversity of fish species of any lake on Earth. (*) Name Lake Malawi or Lake Victoria.", answer: "Lake Victoria" },
-
     { text: "This foundational economic principle states that, assuming all else remains constant, an increase in the price of a good leads to an increase in quantity supplied. (*) Name it.", answer: "Law of Supply" }
-
   ];
 
-
-
   async function syncTriviaDataset() {
-
     const statusMsg = document.getElementById('db-status-msg');
-
     statusMsg.textContent = "Connecting to Trivia-QA-20K dataset API...";
-
     try {
-
       const response = await fetch('https://datasets-server.huggingface.co/rows?dataset=prajwalmani%2Ftrivia-qa-20k&config=default&split=train&offset=0&limit=100');
-
       if (!response.ok) throw new Error('API unreachable');
-
       const data = await response.json();
-
       if (data && data.rows && data.rows.length > 0) {
-
         triviaQADataSet = data.rows.map(r => {
-
           const row = r.row || {};
-
           return {
-
             text: (row.question || row.Question || "Trivia Question") + " (*)",
-
             answer: row.answer || row.Answer || row.normalized_answer || "Unknown"
-
           };
-
         });
-
         statusMsg.textContent = `Synced ${triviaQADataSet.length} questions from Trivia-QA-20K!`;
-
         statusMsg.style.color = "var(--team-green-base)";
-
       } else {
-
         throw new Error('Empty');
-
       }
-
     } catch (err) {
-
       statusMsg.textContent = "Using robust embedded 16-question KSHSAA packet bank";
-
       statusMsg.style.color = "var(--accent-gold)";
-
     }
-
   }
-
-
 
   const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
   function playSoundEffect(type) {
-
     if (!audioCtx) return;
-
     if (audioCtx.state === 'suspended') audioCtx.resume();
-
     const osc = audioCtx.createOscillator();
-
     const gain = audioCtx.createGain();
-
     osc.connect(gain);
-
     gain.connect(audioCtx.destination);
-
     const now = audioCtx.currentTime;
 
-
-
     if (type === 'buzz') {
-
       osc.type = 'sawtooth';
-
       osc.frequency.setValueAtTime(180, now);
-
       osc.frequency.exponentialRampToValueAtTime(90, now + 0.15);
-
       gain.gain.setValueAtTime(0.2, now);
-
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-
       osc.start(now); osc.stop(now + 0.15);
-
     } else if (type === 'correct') {
-
       osc.type = 'sine';
-
       osc.frequency.setValueAtTime(523.25, now);
-
       osc.frequency.setValueAtTime(659.25, now + 0.1);
-
       gain.gain.setValueAtTime(0.2, now);
-
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-
       osc.start(now); osc.stop(now + 0.3);
-
     } else if (type === 'neg') {
-
       osc.type = 'square';
-
       osc.frequency.setValueAtTime(110, now);
-
       osc.frequency.setValueAtTime(80, now + 0.15);
-
       gain.gain.setValueAtTime(0.2, now);
-
       gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-
       osc.start(now); osc.stop(now + 0.3);
-
     }
-
   }
-
-
 
   function unlockAudioEngine() {
-
     if (audioCtx && audioCtx.state === 'suspended') {
-
       audioCtx.resume();
-
     }
-
     if ('speechSynthesis' in window) {
-
       window.speechSynthesis.cancel();
-
       const dummy = new SpeechSynthesisUtterance('');
-
       window.speechSynthesis.speak(dummy);
-
     }
-
   }
-
-
 
   function speakFullQuestionAudio(text) {
-
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
-
-    if (!ttsEnabled || !('speechSynthesis' in window)) {
-
-      isReadingFinished = true;
-
-      return;
-
-    }
-
-    if (activeAudioTarget === 'host-only' && !currentUser.isHost) {
-
-      isReadingFinished = true;
-
-      return;
-
-    }
-
-
+    if (!ttsEnabled || !('speechSynthesis' in window)) return;
+    if (activeAudioTarget === 'host-only' && !currentUser.isHost) return;
 
     if (text === lastSpokenFullText) return;
-
     lastSpokenFullText = text;
 
-
-
     window.speechSynthesis.cancel();
-
     const cleanText = text.replace(/\(\*\)/g, ' ');
-
     activeUtterance = new SpeechSynthesisUtterance(cleanText);
-
     const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
-
     activeUtterance.rate = Math.min(2.5, Math.max(0.55, wpm / 180));
-
     
-
     activeUtterance.onend = () => {
-
       isReadingFinished = true;
-
       dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snap => {
-
         const gs = snap.val() || {};
-
         if (gs.status === "READING") {
-
           startBuzzTimer();
-
         }
-
       });
-
     };
 
-
-
     window.speechSynthesis.speak(activeUtterance);
-
   }
-
-
 
   function toggleArenaVoice() {
-
     const select = document.getElementById('tts-select');
-
     const btn = document.getElementById('arena-voice-toggle');
-
     if (select.value === 'on') {
-
       select.value = 'off';
-
       btn.textContent = '🔇 Voice: OFF';
-
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-
     } else {
-
       select.value = 'on';
-
       btn.textContent = '🔊 Voice: ON';
-
     }
-
   }
-
-
 
   function computeLevenshteinDistance(a, b) {
-
     const matrix = Array.from({ length: b.length + 1 }, (_, i) => [i]);
-
     for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-
     for (let i = 1; i <= b.length; i++) {
-
       for (let j = 1; j <= a.length; j++) {
-
         matrix[i][j] = b[i - 1] === a[j - 1] 
-
           ? matrix[i - 1][j - 1] 
-
           : Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-
       }
-
     }
-
     return matrix[b.length][a.length];
-
   }
-
-
 
   function evaluateCloseAnswer(userGuess, targetAnswer) {
-
     const cleanUser = userGuess.toLowerCase().trim().replace(/^(the|a|an)\s+/i, '');
-
     const cleanTarget = targetAnswer.toLowerCase().trim().replace(/^(the|a|an)\s+/i, '');
-
     if (!cleanUser) return false;
-
     if (cleanUser === cleanTarget || cleanTarget.includes(cleanUser)) return true;
-
     const maxAllowedErrors = cleanTarget.length > 8 ? 3 : (cleanTarget.length > 4 ? 2 : 1);
-
     return computeLevenshteinDistance(cleanUser, cleanTarget) <= maxAllowedErrors;
-
   }
-
-
 
   function generateRandomPin() {
-
     return Math.floor(1000 + Math.random() * 9000).toString();
-
   }
-
-
 
   window.addEventListener('DOMContentLoaded', () => { syncTriviaDataset(); });
 
-
-
   function switchScreen(screenId) {
-
     unlockAudioEngine();
-
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-
     document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-
     document.getElementById(`screen-${screenId}`).classList.add('active');
-
     if (screenId === 'setup') document.querySelectorAll('.tab-btn')[0].classList.add('active');
-
     if (screenId === 'lobby') document.querySelectorAll('.tab-btn')[0].classList.add('active');
-
     if (screenId === 'arena') {
-
       document.querySelectorAll('.tab-btn')[1].classList.add('active');
-
       document.getElementById('nav-arena-tab').style.opacity = '1';
-
       document.getElementById('nav-arena-tab').style.pointerEvents = 'auto';
-
     }
-
   }
-
-
 
   function adjustFontSize(delta) {
-
     const root = document.documentElement;
-
     const current = parseFloat(getComputedStyle(root).getPropertyValue('--q-font-size')) || 1.05;
-
     root.style.setProperty('--q-font-size', Math.min(1.5, Math.max(0.85, current + delta)) + 'rem');
-
   }
-
-
 
   function toggleContrast() { document.body.classList.toggle('high-contrast'); }
 
-
-
   function hostAndOpenRoom() {
-
     unlockAudioEngine();
-
     const hostName = document.getElementById('host-name-input').value.trim() || "Moderator";
-
     const hostRole = document.getElementById('host-role-select').value;
-
     activeDisplayMode = document.getElementById('display-mode-select').value;
-
     activeAudioTarget = document.getElementById('audio-target-select').value;
 
-
-
     if (activeDisplayMode === 'voice-only') {
-
       document.getElementById('tts-select').value = 'on';
-
     }
-
-
 
     activeRoomPin = generateRandomPin();
 
-
-
     let initialRoster = [];
-
     if (hostRole === 'player-a') {
-
       initialRoster.push({ name: hostName, team: 'A' });
-
     } else if (hostRole === 'player-b') {
-
       initialRoster.push({ name: hostName, team: 'B' });
-
     }
-
-
 
     currentUser = { 
-
       name: hostName, 
-
       team: hostRole === 'player-a' ? 'A' : (hostRole === 'player-b' ? 'B' : 'Host'), 
-
       isHost: true 
-
     };
-
-
 
     const initialRoomState = {
-
       host: hostName,
-
       displayMode: activeDisplayMode,
-
       audioTarget: activeAudioTarget,
-
       roster: initialRoster,
-
       gameState: {
-
         status: "LOBBY",
-
         scoreA: 0,
-
         scoreB: 0,
-
         questionIndex: 0,
-
         questionText: "Waiting for host to start match...",
-
         fullQuestion: "",
-
         answerline: "",
-
         buzzPlayer: null,
-
         isInterrupt: false,
-
         attemptedTeams: {}
-
       }
-
     };
 
-
-
     dbRef.ref('rooms/' + activeRoomPin).set(initialRoomState, () => {
-
       document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
-
       setupRoomRealtimeListener(activeRoomPin);
-
       switchScreen('lobby');
-
     });
-
   }
-
-
 
   function verifyRoomPinAndPromptName() {
-
     unlockAudioEngine();
-
     const pin = document.getElementById('join-pin-input').value.trim();
-
     if (!pin || pin.length !== 4) {
-
       alert("Please enter a valid 4-digit room PIN.");
-
       return;
-
     }
 
-
-
     dbRef.ref('rooms/' + pin).once('value').then((snapshot) => {
-
       const roomData = snapshot.val();
-
       if (!roomData) {
-
         alert(`Room PIN "${pin}" does not exist.`);
-
         return;
-
       }
-
       activeRoomPin = pin;
-
       activeDisplayMode = roomData.displayMode || "reading-stream";
-
       activeAudioTarget = roomData.audioTarget || "all-devices";
-
       document.getElementById('modal-pin-display').textContent = activeRoomPin;
-
       switchScreen('join-name');
-
     });
-
   }
-
-
 
   function finalizeJoinRoom() {
-
     unlockAudioEngine();
-
     const playerName = document.getElementById('modal-competitor-name').value.trim() || "Competitor";
-
     const team = document.getElementById('modal-team-select').value;
-
     currentUser = { name: playerName, team: team, isHost: false };
 
-
-
     dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-
       const roomData = snapshot.val() || {};
-
       let roster = roomData.roster || [];
-
       if (roster.filter(p => p.team === team).length >= 5) {
-
         alert(`Team ${team} is full (5 players max)!`);
-
         return;
-
       }
-
       roster.push({ name: playerName, team: team });
-
       dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster, () => {
-
         setupRoomRealtimeListener(activeRoomPin);
-
         document.getElementById('lobby-room-code-tag').textContent = activeRoomPin;
-
         switchScreen('lobby');
-
       });
-
     });
-
   }
-
-
 
   function addRosterMember() {
-
     if (!currentUser.isHost) return;
-
     const input = document.getElementById('lobby-new-name');
-
     const name = input.value.trim();
-
     const team = document.getElementById('lobby-new-team').value;
-
     if (!name) return;
 
-
-
     dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-
       const roomData = snapshot.val() || {};
-
       let roster = roomData.roster || [];
-
       if (roster.filter(p => p.team === team).length >= 5) {
-
         alert(`Team ${team} is full!`);
-
         return;
-
       }
-
       roster.push({ name, team });
-
       dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster, () => { input.value = ""; });
-
     });
-
   }
-
-
 
   function populateBotRoster() {
-
     if (!currentUser.isHost) return;
-
     dbRef.ref('rooms/' + activeRoomPin).once('value').then((snapshot) => {
-
       const roomData = snapshot.val() || {};
-
       let roster = roomData.roster || [];
-
       ['A', 'B'].forEach(team => {
-
         while (roster.filter(p => p.team === team).length < 5) {
-
           roster.push({ name: `Bot ${roster.filter(p => p.team === team).length + 1} (${team})`, team });
-
         }
-
       });
-
       dbRef.ref('rooms/' + activeRoomPin + '/roster').set(roster);
-
     });
-
   }
-
-
 
   function launchChampionshipMatch() {
-
     if (!currentUser.isHost) return;
-
     isReadingFinished = false;
-
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
       status: "READING",
-
       questionIndex: 1,
-
       scoreA: 0,
-
       scoreB: 0
-
     }, () => {
-
       loadNextQuestionCloud();
-
     });
-
   }
 
-
-
   function setupRoomRealtimeListener(pin) {
-
     if (roomListenerRef) roomListenerRef.off();
-
     roomListenerRef = dbRef.ref('rooms/' + pin);
 
-
-
     roomListenerRef.on('value', (snapshot) => {
-
       const data = snapshot.val();
-
       if (!data) return;
 
-
-
       activeDisplayMode = data.displayMode || "reading-stream";
-
       activeAudioTarget = data.audioTarget || "all-devices";
 
-
-
       const roster = data.roster || [];
-
       const teamA = roster.filter(p => p.team === 'A');
-
       const teamB = roster.filter(p => p.team === 'B');
-
       document.getElementById('count-a').textContent = teamA.length;
-
       document.getElementById('count-b').textContent = teamB.length;
-
       document.getElementById('list-a').innerHTML = teamA.map(p => `<li>• ${p.name}</li>`).join('');
-
       document.getElementById('list-b').innerHTML = teamB.map(p => `<li>• ${p.name}</li>`).join('');
 
-
-
       const grid = document.getElementById('arena-roster-grid');
-
       if (grid) {
-
         grid.innerHTML = roster.map(p => `
-
           <div class="desk-podium ${p.team === 'A' ? 'team-a' : 'team-b'}">
-
             <strong style="display:block; font-size:0.65rem; overflow:hidden; text-overflow:ellipsis;">${p.name}</strong>
-
             <div style="width:6px; height:6px; border-radius:50%; background:${data.gameState && data.gameState.buzzPlayer === p.name ? 'var(--team-red-base)' : '#334155'}; margin:2px auto 0 auto;"></div>
-
           </div>
-
         `).join('');
-
       }
-
-
 
       const gState = data.gameState;
-
       if (gState) {
-
         document.getElementById('score-a').textContent = gState.scoreA || 0;
-
         document.getElementById('score-b').textContent = gState.scoreB || 0;
-
         document.getElementById('rotation-status-badge').textContent = `Q ${gState.questionIndex || 1} / 16`;
-
         
-
         const qBox = document.getElementById('active-question-box');
-
         if (activeDisplayMode === 'voice-only') {
-
           qBox.innerHTML = "<em>[Audio Mode: Text hidden]</em>";
-
         } else {
-
           qBox.innerHTML = gState.questionText || "";
-
         }
-
-
 
         if (gState.status === "READING") {
-
-          // Competitors can always buzz in during reading
-
-          document.getElementById('buzz-in-btn').disabled = false;
-
+          document.getElementById('buzz-in-btn').disabled = currentUser.isHost && currentUser.team === 'Host';
           
-
           if (gState.fullQuestion) {
-
             speakFullQuestionAudio(gState.fullQuestion);
-
           }
-
         } else {
-
           document.getElementById('buzz-in-btn').disabled = true;
-
         }
-
-
 
         if (gState.buzzPlayer) {
-
           const interruptNotice = gState.isInterrupt ? " (INTERRUPTION)" : "";
-
           document.getElementById('status-message-text').textContent = `🚨 ${gState.buzzPlayer} buzzed!${interruptNotice}`;
-
         }
-
-
 
         if (gState.status === "ENDED") {
-
           document.getElementById('answerline-panel').classList.remove('hidden');
-
           document.getElementById('resolved-answerline-text').textContent = gState.answerline || "";
-
           document.getElementById('answerline-heading-text').textContent = gState.reason || "Official Answerline";
-
         } else {
-
           document.getElementById('answerline-panel').classList.add('hidden');
-
         }
-
       }
-
-
 
       document.getElementById('personal-role-tag').textContent = currentUser.isHost && currentUser.team === 'Host' ? "MODERATOR" : `TEAM ${currentUser.team}`;
 
-
-
       if (currentUser.isHost) {
-
         document.querySelectorAll('.host-only-control').forEach(el => el.classList.remove('hidden'));
-
         document.getElementById('host-roster-controls').style.display = 'grid';
-
         document.getElementById('start-match-btn').style.display = 'block';
-
       } else {
-
         document.querySelectorAll('.host-only-control').forEach(el => el.classList.add('hidden'));
-
         document.getElementById('host-roster-controls').style.display = 'none';
-
         document.getElementById('start-match-btn').style.display = 'none';
-
       }
-
-
 
       if (data.gameState && data.gameState.status !== "LOBBY" && !document.getElementById('screen-arena').classList.contains('active')) {
-
         switchScreen('arena');
-
       }
-
     });
-
   }
-
-
 
   function loadNextQuestionCloud() {
-
     if (!currentUser.isHost) return;
-
     
-
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then((snap) => {
-
       const currentGs = snap.val() || {};
-
       const nextIndex = (currentGs.questionIndex || 0);
 
-
-
       if (nextIndex > 16) {
-
         alert("Match complete! All 16 KSHSAA round questions have been read.");
-
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ status: "ENDED", questionText: "Match Complete. Final Scores Recorded." });
-
         return;
-
       }
-
-
 
       let pool = triviaQADataSet.length > 0 ? triviaQADataSet : fallbackQuestions;
-
       const q = pool[Math.floor(Math.random() * pool.length)];
-
       const fullText = q.text.replace(/\(\*\)/g, '');
 
-
-
       if (currentStreamTimer) clearInterval(currentStreamTimer);
-
       if (clientTimerInterval) clearInterval(clientTimerInterval);
-
       lastSpokenFullText = "";
-
       isReadingFinished = false;
 
-
-
       if (activeDisplayMode === 'text-only' || activeDisplayMode === 'voice-only') {
-
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
           status: "READING",
-
           questionIndex: nextIndex,
-
           questionText: fullText,
-
           fullQuestion: fullText,
-
           answerline: q.answer,
-
           buzzPlayer: null,
-
           isInterrupt: false,
-
           attemptedTeams: {}
-
         });
-
         isReadingFinished = true;
-
         startBuzzTimer();
-
       } else {
-
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
           status: "READING",
-
           questionIndex: nextIndex,
-
           questionText: "",
-
           fullQuestion: fullText,
-
           answerline: q.answer,
-
           buzzPlayer: null,
-
           isInterrupt: false,
-
           attemptedTeams: {}
-
         });
-
-
 
         const words = fullText.split(' ');
-
         let currentWordIndex = 0;
-
         const wpm = parseInt(document.getElementById('wpm-slider').value, 10) || 220;
-
         const delayMs = Math.max(70, Math.floor(60000 / (wpm * 1.2)));
 
-
-
         currentStreamTimer = setInterval(() => {
-
           if (currentWordIndex < words.length) {
-
             const partialText = words.slice(0, currentWordIndex + 1).join(' ');
-
             dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({ questionText: partialText });
-
             currentWordIndex++;
-
           } else {
-
             clearInterval(currentStreamTimer);
-
+            isReadingFinished = true;
             if (document.getElementById('tts-select').value === 'off' || !('speechSynthesis' in window)) {
-
-              isReadingFinished = true;
-
               startBuzzTimer();
-
             }
-
           }
-
         }, delayMs);
-
       }
-
     });
-
   }
-
-
 
   function startBuzzTimer() {
-
-    isReadingFinished = true;
-
-    document.getElementById('status-message-text').textContent = "[Space] Buzz | [Enter] Submit | [N] Next";
-
     let timeLeft = 10;
-
     const bar = document.getElementById('question-timer-bar');
-
     if (clientTimerInterval) clearInterval(clientTimerInterval);
-
-
 
     clientTimerInterval = setInterval(() => {
-
       timeLeft -= 0.1;
-
       if (bar) bar.style.width = Math.max(0, (timeLeft / 10) * 100) + '%';
-
       if (timeLeft <= 0) {
-
         clearInterval(clientTimerInterval);
-
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snap => {
-
           const gs = snap.val() || {};
-
           if (gs.status === "READING") {
-
             playSoundEffect('neg');
-
             dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
               status: "ENDED",
-
               reason: "⏰ Time Expired! Correct Answer:",
-
               questionIndex: (gs.questionIndex || 1) + 1
-
             });
-
           }
-
         });
-
       }
-
     }, 100);
-
   }
-
-
 
   function toggleMatchPause() {
-
     if (!currentUser.isHost) return;
-
     if (currentStreamTimer) clearInterval(currentStreamTimer);
-
     if (clientTimerInterval) clearInterval(clientTimerInterval);
-
     if ('speechSynthesis' in window) window.speechSynthesis.pause();
-
   }
 
-
-
   function triggerBuzzer() {
-
+    if (currentUser.isHost && currentUser.team === 'Host') return;
     if (currentStreamTimer) clearInterval(currentStreamTimer);
-
     if (clientTimerInterval) clearInterval(clientTimerInterval);
-
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-
-
 
     const isInterrupt = !isReadingFinished;
 
-
-
     playSoundEffect('buzz');
-
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
       status: "BUZZED",
-
       buzzPlayer: currentUser.name,
-
       isInterrupt: isInterrupt
-
     });
-
     
-
     document.getElementById('answer-input-container').classList.remove('hidden');
-
     document.getElementById('competitor-answer-input').value = "";
-
     document.getElementById('competitor-answer-input').focus();
 
-
-
     let answerTimeLeft = 20;
-
     const bar = document.getElementById('question-timer-bar');
-
     if (clientTimerInterval) clearInterval(clientTimerInterval);
-
     
-
     clientTimerInterval = setInterval(() => {
-
       answerTimeLeft -= 0.1;
-
       if (bar) bar.style.width = Math.max(0, (answerTimeLeft / 20) * 100) + '%';
-
       if (answerTimeLeft <= 0) {
-
         clearInterval(clientTimerInterval);
-
         submitCompetitorAnswer(true);
-
       }
-
     }, 100);
-
   }
-
-
 
   function submitCompetitorAnswer(isTimeout = false) {
-
     if (clientTimerInterval) clearInterval(clientTimerInterval);
-
     const guess = isTimeout ? "" : document.getElementById('competitor-answer-input').value;
-
     document.getElementById('answer-input-container').classList.add('hidden');
 
-
-
     dbRef.ref('rooms/' + activeRoomPin + '/gameState').once('value').then(snapshot => {
-
       const gState = snapshot.val() || {};
-
       const isCorrect = !isTimeout && evaluateCloseAnswer(guess, gState.answerline || "");
 
-
-
       let deltaA = gState.scoreA || 0;
-
       let deltaB = gState.scoreB || 0;
-
       let attemptedTeams = gState.attemptedTeams || {};
-
       attemptedTeams[currentUser.team] = true;
 
-
-
       if (currentUser.team === 'A') {
-
         if (isCorrect) {
-
           deltaA += 10;
-
         } else {
-
           deltaA += gState.isInterrupt ? -5 : 0;
-
         }
-
       }
-
-
 
       if (currentUser.team === 'B') {
-
         if (isCorrect) {
-
           deltaB += 10;
-
         } else {
-
           deltaB += gState.isInterrupt ? -5 : 0;
-
         }
-
       }
-
-
 
       if (isCorrect) {
-
         playSoundEffect('correct');
-
         dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
           status: "ENDED",
-
           scoreA: deltaA,
-
           scoreB: deltaB,
-
           reason: "✅ Correct Answer:",
-
           questionIndex: (gState.questionIndex || 1) + 1
-
         });
-
       } else {
-
         playSoundEffect('neg');
-
         if (attemptedTeams['A'] && attemptedTeams['B']) {
-
           dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
             status: "ENDED",
-
             scoreA: deltaA,
-
             scoreB: deltaB,
-
             reason: "❌ Both Teams Incorrect! Correct Answer:",
-
             questionIndex: (gState.questionIndex || 1) + 1
-
           });
-
         } else {
-
+          // Restart reading / let other team buzz in
+          const fullText = gState.fullQuestion || "";
           dbRef.ref('rooms/' + activeRoomPin + '/gameState').update({
-
             status: "READING",
-
             scoreA: deltaA,
-
             scoreB: deltaB,
-
+            questionText: fullText,
             buzzPlayer: null,
-
             attemptedTeams: attemptedTeams
-
           });
-
           isReadingFinished = true;
-
           startBuzzTimer();
-
         }
-
       }
-
     });
-
   }
 
-
-
   window.addEventListener('keydown', (e) => {
-
     if (!document.getElementById('screen-arena').classList.contains('active')) return;
-
     const isTyping = document.activeElement.tagName === 'INPUT';
-
     if (e.key === 'Enter' && isTyping) {
-
       e.preventDefault();
-
       submitCompetitorAnswer();
-
       return;
-
     }
-
     if (isTyping) return;
-
-    if (e.code === 'Space') {
-
+    if (e.code === 'Space' && !(currentUser.isHost && currentUser.team === 'Host')) {
       e.preventDefault();
-
       triggerBuzzer();
-
     }
-
     if (e.code === 'KeyN' && currentUser.isHost) {
-
       e.preventDefault();
-
       loadNextQuestionCloud();
-
     }
-
     if (e.code === 'KeyP' && currentUser.isHost) {
-
       e.preventDefault();
-
       toggleMatchPause();
-
     }
-
   });
-
 </script>
-
 </body>
-
 </html>
