@@ -328,7 +328,7 @@
     <div class="grid-2">
       <div class="card-panel">
         <h2>Host a New 5v5 Room</h2>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Create a master session. 16 questions per round; full cloud sync.</p>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0;">Create a master session. Configure audio reading targets below.</p>
         
         <label class="label-text">Host Name / Moderator</label>
         <input type="text" id="host-name-input" class="input-field" value="Moderator">
@@ -347,6 +347,12 @@
           <option value="voice-only">Voice Only (Audio Moderator, Hidden Text)</option>
         </select>
 
+        <label class="label-text">Audio Reading Target</label>
+        <select id="audio-target-select" class="input-field">
+          <option value="host-only" selected>Host Computer Only</option>
+          <option value="all-devices">All Player Phones & Host</option>
+        </select>
+
         <div class="grid-2" style="gap:10px; margin-bottom:6px;">
           <div>
             <label class="label-text">Speed: <span id="wpm-display">220</span> WPM</label>
@@ -355,7 +361,7 @@
           <div>
             <label class="label-text">Moderator Voice (AI Reader)</label>
             <select id="tts-select" class="input-field" style="margin-bottom:0;">
-              <option value="on" selected>On (Read Aloud on All Devices)</option>
+              <option value="on" selected>On (Speech Audio)</option>
               <option value="off">Off (Silent)</option>
             </select>
           </div>
@@ -518,6 +524,7 @@
   let currentUser = { name: "Moderator", team: "Host", isHost: true };
   let activeRoomPin = "";
   let activeDisplayMode = "reading-stream";
+  let activeAudioTarget = "host-only";
   let roomListenerRef = null;
   let triviaQADataSet = [];
   let currentStreamTimer = null;
@@ -597,6 +604,10 @@
   function speakModeratorAudio(text) {
     const ttsEnabled = document.getElementById('tts-select').value === 'on';
     if (!ttsEnabled || !('speechSynthesis' in window)) return;
+    
+    // Check audio target rule: if host-only and current user is competitor, skip speech
+    if (activeAudioTarget === 'host-only' && (!currentUser.isHost || currentUser.team !== 'Host')) return;
+
     if (activeDisplayMode === 'voice-only') {
       // Allow voice-only repetition
     } else if (text === lastSpokenQuestionText) {
@@ -678,6 +689,7 @@
     const hostName = document.getElementById('host-name-input').value.trim() || "Moderator";
     const hostRole = document.getElementById('host-role-select').value;
     activeDisplayMode = document.getElementById('display-mode-select').value;
+    activeAudioTarget = document.getElementById('audio-target-select').value;
 
     if (activeDisplayMode === 'voice-only') {
       document.getElementById('tts-select').value = 'on';
@@ -701,6 +713,7 @@
     const initialRoomState = {
       host: hostName,
       displayMode: activeDisplayMode,
+      audioTarget: activeAudioTarget,
       roster: initialRoster,
       gameState: {
         status: "LOBBY",
@@ -735,6 +748,7 @@
       }
       activeRoomPin = pin;
       activeDisplayMode = roomData.displayMode || "reading-stream";
+      activeAudioTarget = roomData.audioTarget || "host-only";
       document.getElementById('modal-pin-display').textContent = activeRoomPin;
       switchScreen('join-name');
     });
@@ -813,6 +827,7 @@
       if (!data) return;
 
       activeDisplayMode = data.displayMode || "reading-stream";
+      activeAudioTarget = data.audioTarget || "host-only";
 
       const roster = data.roster || [];
       const teamA = roster.filter(p => p.team === 'A');
