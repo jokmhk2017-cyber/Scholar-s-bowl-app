@@ -848,7 +848,9 @@
     six: 6, seven: 7, eight: 8, nine: 9, ten: 10
   };
 
-  function normalizeAnswerTokens(text) {
+  const stopWords = new Set(["the", "a", "an", "of", "and", "in", "on", "at", "to", "for", "by", "with"]);
+
+  function normalizeAnswerTokens(text, removeStops = false) {
     let clean = String(text || "")
       .toLowerCase()
       .normalize("NFKD")
@@ -856,11 +858,9 @@
       .replace(/^[\s"'“”‘’]*(the|a|an)\s+/i, "")
       .replace(/[^a-z0-9\s]/g, " ");
 
-    // Replace ordinal/cardinal words and roman numerals with standard digit representations
     const words = clean.split(/\s+/).filter(Boolean);
     const converted = words.map(w => {
       if (numberWordMap[w] !== undefined) return String(numberWordMap[w]);
-      // Check if it's a valid Roman numeral
       if (/^[ivxlcdm]+$/.test(w)) {
         const val = romanToInt(w);
         if (val !== null) return String(val);
@@ -868,7 +868,10 @@
       return w;
     });
 
-    return converted.join(" ");
+    if (removeStops) {
+      return converted.filter(w => !stopWords.has(w));
+    }
+    return converted;
   }
 
   // Levenshtein distance calculator for typo tolerance
@@ -884,10 +887,10 @@
           matrix[i][j] = matrix[i - 1][j - 1];
         } else {
           matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1, // substitution
+            matrix[i - 1][j - 1] + 1,
             Math.min(
-              matrix[i][j - 1] + 1,   // insertion
-              matrix[i - 1][j] + 1    // deletion
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
             )
           );
         }
@@ -902,24 +905,29 @@
 
     const answers = Array.isArray(targetAnswer) ? targetAnswer : [targetAnswer];
     for (const ans of answers) {
-      const normTarget = normalizeAnswerTokens(ans);
-      const normGuess = normalizeAnswerTokens(rawGuess);
+      // 1. Direct normalized comparison with stop-words retained
+      const normTargetArr = normalizeAnswerTokens(ans, false);
+      const normGuessArr = normalizeAnswerTokens(rawGuess, false);
+      const normTargetStr = normTargetArr.join(" ");
+      const normGuessStr = normGuessArr.join(" ");
 
-      if (!normTarget || !normGuess) continue;
-      if (normTarget === normGuess) return true;
+      if (normTargetStr && normGuessStr && normTargetStr === normGuessStr) return true;
 
-      // Check token-by-token or word distance for minor misspellings (typos)
-      const targetWords = normTarget.split(" ");
-      const guessWords = normGuess.split(" ");
+      // 2. Stop-word insensitive comparison (e.g. "walk the line" vs "walk line")
+      const targetNoStops = normalizeAnswerTokens(ans, true);
+      const guessNoStops = normalizeAnswerTokens(rawGuess, true);
+      if (targetNoStops.length > 0 && targetNoStops.join(" ") === guessNoStops.join(" ")) {
+        return true;
+      }
 
-      if (targetWords.length === guessWords.length) {
+      // 3. Token-by-token typo tolerance
+      if (normTargetArr.length === normGuessArr.length) {
         let allMatch = true;
-        for (let i = 0; i < targetWords.length; i++) {
-          const tw = targetWords[i];
-          const gw = guessWords[i];
+        for (let i = 0; i < normTargetArr.length; i++) {
+          const tw = normTargetArr[i];
+          const gw = normGuessArr[i];
           if (tw === gw) continue;
           const dist = computeLevenshteinDistance(tw, gw);
-          // Allow small spelling differences depending on word length (e.g., 1 error for short, up to 2 for long)
           const maxAllowed = tw.length > 5 ? 2 : (tw.length > 3 ? 1 : 0);
           if (dist > maxAllowed) {
             allMatch = false;
@@ -929,11 +937,13 @@
         if (allMatch) return true;
       }
 
-      // Check if overall string distance is within a tight tolerance percentage for short strings
-      const totalDist = computeLevenshteinDistance(normTarget, normGuess);
-      const maxLength = Math.max(normTarget.length, normGuess.length);
-      if (maxLength > 0 && (totalDist / maxLength) <= 0.22) {
-        return true;
+      // 4. Overall string distance threshold for short strings / typos
+      if (normTargetStr.length > 0 && normGuessStr.length > 0) {
+        const totalDist = computeLevenshteinDistance(normTargetStr, normGuessStr);
+        const maxLength = Math.max(normTargetStr.length, normGuessStr.length);
+        if (maxLength > 0 && (totalDist / maxLength) <= 0.22) {
+          return true;
+        }
       }
     }
     return false;
