@@ -14,9 +14,9 @@
 
   <style>
     :root {
-      --bg-base: #090d16;
-      --bg-surface: #111827;
-      --bg-card: #1f293d;
+      --bg-base: #10152b;
+      --bg-surface: rgba(19, 28, 54, 0.96);
+      --bg-card: rgba(35, 48, 82, 0.94);
       --border-subtle: rgba(255, 255, 255, 0.08);
       --border-focus: rgba(56, 189, 248, 0.4);
       --accent-cyan: #0ea5e9;
@@ -29,6 +29,7 @@
     }
 
     body.high-contrast {
+      background: #000000;
       --bg-base: #000000;
       --bg-surface: #0a0a0a;
       --bg-card: #141414;
@@ -39,7 +40,12 @@
     }
 
     body {
-      background-color: var(--bg-base);
+      background:
+        radial-gradient(ellipse at 12% 12%, rgba(14, 165, 233, 0.28), transparent 34%),
+        radial-gradient(ellipse at 88% 18%, rgba(168, 85, 247, 0.24), transparent 32%),
+        radial-gradient(ellipse at 50% 100%, rgba(16, 185, 129, 0.16), transparent 42%),
+        linear-gradient(135deg, #0b1022 0%, #172044 48%, #11172c 100%);
+      background-attachment: fixed;
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', sans-serif;
       margin: 0;
@@ -56,8 +62,9 @@
       width: 100%;
       max-width: 1100px;
       border-radius: 16px;
-      border: 1px solid var(--border-subtle);
-      box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      box-shadow: 0 18px 55px -18px rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(14px);
       padding: 16px;
       box-sizing: border-box;
     }
@@ -129,9 +136,10 @@
     .card-panel {
       background-color: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 16px;
       box-sizing: border-box;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
     }
 
     .card-panel h2 {
@@ -178,8 +186,10 @@
       width: 100%;
       box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
       box-sizing: border-box;
+      transition: transform 0.15s ease, filter 0.15s ease;
     }
 
+    .btn-action:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
     .btn-secondary { background: #334155; color: white; box-shadow: none; }
     .btn-action:disabled, .util-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
 
@@ -373,6 +383,15 @@
           </div>
         </div>
 
+        <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:12px; border-radius:10px; margin-top:14px;">
+          <label class="label-text" for="csv-file-input">Load your own question CSV (optional)</label>
+          <input type="file" id="csv-file-input" class="input-field" accept=".csv,text/csv" style="margin-bottom:6px;">
+          <p style="font-size:0.75rem; color:var(--text-muted); margin:4px 0 0; line-height:1.5;">
+            Column 1: Question · Column 2: Primary answer · Column 3: Secondary answer · Column 4: Tertiary answer.
+            A header row is optional. Your imported CSV takes priority over the online dataset.
+          </p>
+          <div id="csv-import-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:7px;" aria-live="polite">No custom CSV loaded.</div>
+        </div>
         <button class="btn-action" style="margin-top:12px;" onclick="hostAndOpenRoom()">Host & Enter Lobby 🚀</button>
       </div>
 
@@ -556,6 +575,7 @@
   let isResolvingTimeout = false;
   let localTtsEnabled = true;
   let usedQuestionKeys = [];
+  let customCsvLoaded = false;
 
   const fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -584,6 +604,7 @@
   }
 
   function parseCSV(csvText) {
+    csvText = String(csvText || "").replace(/^\uFEFF/, "");
     const rows = [];
     let row = [];
     let field = "";
@@ -617,16 +638,76 @@
     return rows;
   }
 
+  function buildQuestionsFromCSV(csvText) {
+    const rows = parseCSV(csvText);
+    if (!rows.length) throw new Error("The CSV is empty.");
+
+    const firstRow = rows[0].map(value => String(value || "").trim().toLowerCase());
+    const hasHeader = firstRow.some(value =>
+      ["question", "primary answer", "answer", "secondary answer", "tertiary answer"].includes(value)
+    );
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const questions = [];
+    const seen = new Set();
+
+    dataRows.forEach(columns => {
+      const question = String(columns[0] || "").trim();
+      const answers = [1, 2, 3].map(column => String(columns[column] || "").trim()).filter(Boolean);
+      if (!question || !answers.length) return;
+      const key = question.toLowerCase().replace(/\s+/g, " ");
+      if (seen.has(key)) return;
+      seen.add(key);
+      questions.push({
+        text: question.replace(/\s+/g, " ") + " (*)",
+        answer: answers[0],
+        acceptedAnswers: [...new Set(answers)]
+      });
+    });
+
+    if (!questions.length) {
+      throw new Error("No usable questions found. Put questions in column 1 and answers in columns 2–4.");
+    }
+    return questions;
+  }
+
+  async function importCustomCSV(file) {
+    const status = document.getElementById("csv-import-status");
+    if (!file) return;
+    if (!/\.csv$/i.test(file.name) && file.type !== "text/csv") {
+      if (status) status.textContent = "Please choose a .csv file.";
+      return;
+    }
+    try {
+      const questions = buildQuestionsFromCSV(await file.text());
+      triviaQADataSet = questions;
+      customCsvLoaded = true;
+      if (status) {
+        status.textContent = `✓ Loaded ${questions.length.toLocaleString()} questions from ${file.name}.`;
+        status.style.color = "var(--team-green-base)";
+      }
+      setDatasetStatus(`Custom CSV loaded: ${questions.length.toLocaleString()} questions.`, "var(--team-green-base)");
+    } catch (err) {
+      console.error("CSV import failed:", err);
+      if (status) {
+        status.textContent = "CSV import failed: " + err.message;
+        status.style.color = "var(--team-red-base)";
+      }
+    }
+  }
+
   async function syncTriviaDataset() {
+    if (customCsvLoaded) {
+      setDatasetStatus(`Using your custom CSV (${triviaQADataSet.length.toLocaleString()} questions).`, "var(--team-green-base)");
+      return;
+    }
     setDatasetStatus("Downloading the 20,000-question Trivia-QA CSV...");
     try {
       const csvUrl = "https://huggingface.co/datasets/prajwalmani/trivia-qa-20k/resolve/main/trivia_20k.csv";
       const response = await fetch(csvUrl);
       if (!response.ok) throw new Error("Dataset download returned HTTP " + response.status);
-      const csvText = await response.text();
-      const rows = parseCSV(csvText);
+      const rows = parseCSV(await response.text());
       if (rows.length < 2) throw new Error("The downloaded CSV did not contain question rows");
-
+      if (customCsvLoaded) return; // A locally selected file always wins over an in-flight download.
       const headers = rows[0].map(value => value.replace(/^\uFEFF/, "").trim().toLowerCase());
       const questionColumn = headers.indexOf("question");
       const answerColumn = headers.indexOf("answer");
@@ -648,6 +729,7 @@
       if (!triviaQADataSet.length) throw new Error("No valid question-answer pairs were found in the CSV");
       setDatasetStatus(`Loaded ${triviaQADataSet.length.toLocaleString()} unique questions from Trivia-QA.`, "var(--team-green-base)");
     } catch (err) {
+      if (customCsvLoaded) return;
       console.warn("Trivia-QA download failed; using embedded questions:", err);
       triviaQADataSet = [];
       setDatasetStatus("Dataset unavailable. Using the embedded 16-question fallback packet.", "var(--accent-gold)");
@@ -729,7 +811,7 @@
 
   function speakFullQuestionAudio(gameState, runKey) {
     if (!gameState || !gameState.fullQuestion || !localTtsEnabled) return;
-    if (!gameState.voiceEnabled || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance !== "undefined") return;
+    if (!gameState.voiceEnabled || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
     if (activeAudioTarget === "host-only" && !currentUser.isHost) return;
     if (lastSpokenRunKey === runKey) return;
     lastSpokenRunKey = runKey;
@@ -821,134 +903,57 @@
     }
   }
 
-  // --- ADVANCED ROBUST ANSWER CHECKER ---
-  function romanToInt(roman) {
-    const map = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
-    let total = 0;
-    const r = roman.toLowerCase();
-    for (let i = 0; i < r.length; i++) {
-      const current = map[r[i]] || 0;
-      const next = map[r[i + 1]] || 0;
-      if (current < next) {
-        total += next - current;
-        i++;
-      } else {
-        total += current;
-      }
-    }
-    return total > 0 ? total : null;
-  }
+  // --- ANSWER CHECKER: case/punctuation tolerant, maximum 3 typo edits ---
+  const answerStopWords = new Set(["the", "a", "an"]);
 
-  const numberWordMap = {
-    first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
-    sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
-    eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15,
-    sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20,
-    one: 1, two: 2, three: 3, four: 4, five: 5,
-    six: 6, seven: 7, eight: 8, nine: 9, ten: 10
-  };
-
-  const stopWords = new Set(["the", "a", "an", "of", "and", "in", "on", "at", "to", "for", "by", "with"]);
-
-  function normalizeAnswerTokens(text, removeStops = false) {
-    let clean = String(text || "")
-      .toLowerCase()
+  function normalizeAnswer(text) {
+    return String(text || "")
+      .toLocaleLowerCase()
       .normalize("NFKD")
       .replace(/[\u0300-\u036f]/g, "")
-      .replace(/^[\s"'“”‘’]*(the|a|an)\s+/i, "")
-      .replace(/[^a-z0-9\s]/g, " ");
-
-    const words = clean.split(/\s+/).filter(Boolean);
-    const converted = words.map(w => {
-      if (numberWordMap[w] !== undefined) return String(numberWordMap[w]);
-      if (/^[ivxlcdm]+$/.test(w)) {
-        const val = romanToInt(w);
-        if (val !== null) return String(val);
-      }
-      return w;
-    });
-
-    if (removeStops) {
-      return converted.filter(w => !stopWords.has(w));
-    }
-    return converted;
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ")
+      .split(" ")
+      .filter(word => word && !answerStopWords.has(word))
+      .join(" ");
   }
 
-  // Levenshtein distance calculator for typo tolerance
   function computeLevenshteinDistance(a, b) {
-    if (a.length === 0) return b.length;
-    if (b.length === 0) return a.length;
-    const matrix = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            Math.min(
-              matrix[i][j - 1] + 1,
-              matrix[i - 1][j] + 1
-            )
-          );
-        }
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+    if (Math.abs(a.length - b.length) > 3) return 4;
+    let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+      const current = [i];
+      let rowMinimum = i;
+      for (let j = 1; j <= b.length; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
+        rowMinimum = Math.min(rowMinimum, current[j]);
       }
+      if (rowMinimum > 3) return 4;
+      previous = current;
     }
-    return matrix[b.length][a.length];
+    return previous[b.length];
   }
 
   function evaluateCloseAnswer(userGuess, targetAnswer) {
-    const rawGuess = String(userGuess || "").trim();
-    if (!rawGuess) return false;
-
+    const guess = normalizeAnswer(userGuess);
+    if (!guess) return false;
     const answers = Array.isArray(targetAnswer) ? targetAnswer : [targetAnswer];
-    for (const ans of answers) {
-      // 1. Direct normalized comparison with stop-words retained
-      const normTargetArr = normalizeAnswerTokens(ans, false);
-      const normGuessArr = normalizeAnswerTokens(rawGuess, false);
-      const normTargetStr = normTargetArr.join(" ");
-      const normGuessStr = normGuessArr.join(" ");
-
-      if (normTargetStr && normGuessStr && normTargetStr === normGuessStr) return true;
-
-      // 2. Stop-word insensitive comparison (e.g. "walk the line" vs "walk line")
-      const targetNoStops = normalizeAnswerTokens(ans, true);
-      const guessNoStops = normalizeAnswerTokens(rawGuess, true);
-      if (targetNoStops.length > 0 && targetNoStops.join(" ") === guessNoStops.join(" ")) {
-        return true;
-      }
-
-      // 3. Token-by-token typo tolerance
-      if (normTargetArr.length === normGuessArr.length) {
-        let allMatch = true;
-        for (let i = 0; i < normTargetArr.length; i++) {
-          const tw = normTargetArr[i];
-          const gw = normGuessArr[i];
-          if (tw === gw) continue;
-          const dist = computeLevenshteinDistance(tw, gw);
-          const maxAllowed = tw.length > 5 ? 2 : (tw.length > 3 ? 1 : 0);
-          if (dist > maxAllowed) {
-            allMatch = false;
-            break;
-          }
-        }
-        if (allMatch) return true;
-      }
-
-      // 4. Overall string distance threshold for short strings / typos
-      if (normTargetStr.length > 0 && normGuessStr.length > 0) {
-        const totalDist = computeLevenshteinDistance(normTargetStr, normGuessStr);
-        const maxLength = Math.max(normTargetStr.length, normGuessStr.length);
-        if (maxLength > 0 && (totalDist / maxLength) <= 0.22) {
-          return true;
-        }
-      }
-    }
-    return false;
+    return answers.some(answer => {
+      const target = normalizeAnswer(answer);
+      if (!target) return false;
+      if (guess === target) return true;
+      const distance = computeLevenshteinDistance(guess, target);
+      const allowed = Math.min(3, Math.max(1, Math.floor(target.length * 0.20)));
+      return distance <= allowed;
+    });
   }
-  // --- END OF ADVANCED ROBUST ANSWER CHECKER ---
+  // --- END OF ANSWER CHECKER ---
 
   function generateRandomPin() {
     return Math.floor(1000 + Math.random() * 9000).toString();
@@ -965,6 +970,8 @@
   window.addEventListener("DOMContentLoaded", () => {
     const ttsSelect = document.getElementById("tts-select");
     if (ttsSelect) localTtsEnabled = ttsSelect.value === "on";
+    const csvInput = document.getElementById("csv-file-input");
+    if (csvInput) csvInput.addEventListener("change", event => importCustomCSV(event.target.files && event.target.files[0]));
     syncTriviaDataset();
   });
 
@@ -1515,8 +1522,14 @@
 
   function submitCompetitorAnswer(isTimeout = false) {
     if (!currentGameState || currentGameState.status !== "BUZZED" || currentGameState.buzzPlayerId !== currentUser.clientId) return;
-    const guess = isTimeout ? "" : document.getElementById("competitor-answer-input").value;
+    const answerInput = document.getElementById("competitor-answer-input");
+    const guess = isTimeout ? "" : answerInput.value.trim();
+    if (!isTimeout && !guess) {
+      answerInput.focus();
+      return;
+    }
     document.getElementById("answer-input-container").classList.add("hidden");
+    answerInput.value = "";
     resolveCurrentAnswer(guess, isTimeout, false);
   }
 
