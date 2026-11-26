@@ -506,6 +506,16 @@
         <div class="dashboard-field"><label class="label-text">Question display</label><select class="input-field" id="dash-display-mode"><option value="reading-stream">Word-by-word stream</option><option value="text-only">Full text</option><option value="voice-only">Voice only</option></select></div>
         <div class="dashboard-field"><label class="label-text">Audio target</label><select class="input-field" id="dash-audio-target"><option value="host-only">Host only</option><option value="all-devices">All devices</option></select></div>
       </div>
+      <div class="dashboard-field" style="margin-top:12px;">
+        <label class="label-text" for="custom-csv-file">Upload your own question CSV</label>
+        <input class="input-field" id="custom-csv-file" type="file" accept=".csv,text/csv">
+        <p class="dashboard-note">Use columns: Question, Primary Answer, Secondary Answer, Tertiary Answer. A header row is recommended. Your uploaded packet is saved to this room and used for everyone.</p>
+        <div class="dashboard-actions">
+          <button class="btn-action" type="button" onclick="uploadCustomQuestionCSV()">📂 Upload & use CSV</button>
+          <button class="btn-action btn-secondary" type="button" onclick="restoreDefaultQuestionSet()">↩ Use built-in questions</button>
+        </div>
+        <p class="dashboard-note" id="custom-csv-status" aria-live="polite">No custom CSV uploaded for this room.</p>
+      </div>
       <div class="dashboard-actions">
         <button class="btn-action" onclick="applyHostDashboardSettings()">💾 Apply settings & scores</button>
         <button class="btn-action btn-secondary" onclick="hostRevealAnswer()">👁 Reveal answer</button>
@@ -651,6 +661,83 @@
       if (row.some(value => value.trim() !== "")) rows.push(row);
     }
     return rows;
+  }
+
+  function parseCustomQuestionCSV(csvText) {
+    const rows = parseCSV(csvText);
+    if (!rows.length) throw new Error("The CSV is empty.");
+
+    const normalizeHeader = value => String(value || "").replace(/^\uFEFF/, "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    const headers = rows[0].map(normalizeHeader);
+    const questionNames = ["question", "questions", "q", "prompt", "clue"];
+    const answerNames = ["primaryanswer", "answer", "correctanswer", "primary", "answer1"];
+    const secondaryNames = ["secondaryanswer", "secondary", "answer2", "alternateanswer", "altanswer"];
+    const tertiaryNames = ["tertiaryanswer", "tertiary", "answer3", "thirdanswer"];
+    const findColumn = names => headers.findIndex(header => names.includes(header));
+    let questionColumn = findColumn(questionNames);
+    let primaryColumn = findColumn(answerNames);
+    let secondaryColumn = findColumn(secondaryNames);
+    let tertiaryColumn = findColumn(tertiaryNames);
+    let startRow = 1;
+
+    // Also accept simple headerless files in the format Q, primary, secondary, tertiary.
+    if (questionColumn < 0 || primaryColumn < 0) {
+      questionColumn = 0; primaryColumn = 1; secondaryColumn = 2; tertiaryColumn = 3; startRow = 0;
+    }
+
+    const unique = new Map();
+    rows.slice(startRow).forEach(columns => {
+      const question = String(columns[questionColumn] || "").trim();
+      const answers = [primaryColumn, secondaryColumn, tertiaryColumn]
+        .filter(index => index >= 0)
+        .map(index => String(columns[index] || "").trim())
+        .filter(Boolean);
+      if (!question || !answers.length) return;
+      const key = question.toLowerCase();
+      if (!unique.has(key)) unique.set(key, {
+        text: question.replace(/\s+/g, " ") + " (*)",
+        answer: answers[0],
+        acceptedAnswers: [...new Set(answers)]
+      });
+    });
+    if (!unique.size) throw new Error("No valid question-and-answer rows were found. Check your column headers and data.");
+    return [...unique.values()];
+  }
+
+  async function uploadCustomQuestionCSV() {
+    if (!currentUser.isHost || !activeRoomPin) return;
+    const input = document.getElementById("custom-csv-file");
+    const status = document.getElementById("custom-csv-status");
+    const file = input && input.files && input.files[0];
+    if (!file) { status.textContent = "Choose a .csv file first."; return; }
+    try {
+      status.textContent = "Reading and checking CSV...";
+      const questions = parseCustomQuestionCSV(await file.text());
+      status.textContent = `Uploading ${questions.length.toLocaleString()} questions to this room...`;
+      await dbRef.ref("rooms/" + activeRoomPin + "/customQuestions").set(questions);
+      triviaQADataSet = questions;
+      usedQuestionKeys = [];
+      status.textContent = `✓ Loaded ${questions.length.toLocaleString()} questions from ${file.name}. This packet is saved to the room.`;
+      setDatasetStatus(`Using your custom CSV (${questions.length.toLocaleString()} questions).`, "var(--team-green-base)");
+    } catch (err) {
+      console.error("Custom CSV upload failed:", err);
+      status.textContent = "Upload failed: " + (err.message || "Check the file and room permissions.");
+    }
+  }
+
+  async function restoreDefaultQuestionSet() {
+    if (!currentUser.isHost || !activeRoomPin) return;
+    try {
+      await dbRef.ref("rooms/" + activeRoomPin + "/customQuestions").remove();
+      triviaQADataSet = [];
+      usedQuestionKeys = [];
+      const status = document.getElementById("custom-csv-status");
+      if (status) status.textContent = "Using the built-in question set again.";
+      setDatasetStatus("Using the built-in question set.", "var(--accent-gold)");
+    } catch (err) {
+      console.error("Could not restore default questions:", err);
+      alert("Could not switch question sets. Check Firebase room permissions.");
+    }
   }
 
   async function syncTriviaDataset() {
@@ -1323,6 +1410,11 @@
       activeDisplayMode = data.displayMode || "reading-stream";
       activeAudioTarget = data.audioTarget || "all-devices";
       const roomSettings = data.settings || {};
+      if (Array.isArray(data.customQuestions) && data.customQuestions.length) {
+        triviaQADataSet = data.customQuestions;
+        const csvStatus = document.getElementById("custom-csv-status");
+        if (csvStatus) csvStatus.textContent = `✓ This room has ${data.customQuestions.length.toLocaleString()} custom CSV questions loaded.`;
+      }
       window.currentRoomSettings = roomSettings;
       if (currentUser.isHost) {
         document.getElementById("host-dashboard").classList.remove("hidden");
