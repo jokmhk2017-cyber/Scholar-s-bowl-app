@@ -14,9 +14,9 @@
 
   <style>
     :root {
-      --bg-base: #10152b;
-      --bg-surface: rgba(19, 28, 54, 0.96);
-      --bg-card: rgba(35, 48, 82, 0.94);
+      --bg-base: #090d16;
+      --bg-surface: #111827;
+      --bg-card: #1f293d;
       --border-subtle: rgba(255, 255, 255, 0.08);
       --border-focus: rgba(56, 189, 248, 0.4);
       --accent-cyan: #0ea5e9;
@@ -29,7 +29,6 @@
     }
 
     body.high-contrast {
-      background: #000000;
       --bg-base: #000000;
       --bg-surface: #0a0a0a;
       --bg-card: #141414;
@@ -40,12 +39,7 @@
     }
 
     body {
-      background:
-        radial-gradient(ellipse at 12% 12%, rgba(14, 165, 233, 0.28), transparent 34%),
-        radial-gradient(ellipse at 88% 18%, rgba(168, 85, 247, 0.24), transparent 32%),
-        radial-gradient(ellipse at 50% 100%, rgba(16, 185, 129, 0.16), transparent 42%),
-        linear-gradient(135deg, #0b1022 0%, #172044 48%, #11172c 100%);
-      background-attachment: fixed;
+      background-color: var(--bg-base);
       color: var(--text-main);
       font-family: 'Plus Jakarta Sans', sans-serif;
       margin: 0;
@@ -62,9 +56,8 @@
       width: 100%;
       max-width: 1100px;
       border-radius: 16px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      box-shadow: 0 18px 55px -18px rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(14px);
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.7);
       padding: 16px;
       box-sizing: border-box;
     }
@@ -136,10 +129,9 @@
     .card-panel {
       background-color: var(--bg-card);
       border: 1px solid var(--border-subtle);
-      border-radius: 14px;
+      border-radius: 12px;
       padding: 16px;
       box-sizing: border-box;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
     }
 
     .card-panel h2 {
@@ -186,10 +178,8 @@
       width: 100%;
       box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
       box-sizing: border-box;
-      transition: transform 0.15s ease, filter 0.15s ease;
     }
 
-    .btn-action:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
     .btn-secondary { background: #334155; color: white; box-shadow: none; }
     .btn-action:disabled, .util-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
 
@@ -304,6 +294,16 @@
     }
 
     .hidden { display: none !important; }
+    .host-dashboard { margin: 12px 0; border: 1px solid rgba(14,165,233,.45); background: linear-gradient(145deg, var(--bg-card), var(--bg-base)); }
+    .host-dashboard h2 { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .dashboard-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .dashboard-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .dashboard-actions button { flex:1 1 145px; }
+    .dashboard-note { color:var(--text-muted); font-size:.75rem; line-height:1.45; }
+    .dashboard-field { min-width:0; }
+    .dashboard-field input, .dashboard-field select { margin-bottom:0; }
+    @media(max-width:768px) { .dashboard-grid { grid-template-columns:1fr 1fr; } }
+    @media(max-width:430px) { .dashboard-grid { grid-template-columns:1fr; } }
 
     @media (max-width: 768px) {
       body { padding: 4px; }
@@ -383,15 +383,6 @@
           </div>
         </div>
 
-        <div style="background:var(--bg-base); border:1px solid var(--border-subtle); padding:12px; border-radius:10px; margin-top:14px;">
-          <label class="label-text" for="csv-file-input">Load your own question CSV (optional)</label>
-          <input type="file" id="csv-file-input" class="input-field" accept=".csv,text/csv" style="margin-bottom:6px;">
-          <p style="font-size:0.75rem; color:var(--text-muted); margin:4px 0 0; line-height:1.5;">
-            Column 1: Question · Column 2: Primary answer · Column 3: Secondary answer · Column 4: Tertiary answer.
-            A header row is optional. Your imported CSV takes priority over the online dataset.
-          </p>
-          <div id="csv-import-status" style="font-size:0.75rem; color:var(--text-muted); margin-top:7px;" aria-live="polite">No custom CSV loaded.</div>
-        </div>
         <button class="btn-action" style="margin-top:12px;" onclick="hostAndOpenRoom()">Host & Enter Lobby 🚀</button>
       </div>
 
@@ -474,7 +465,7 @@
 
       <div style="display:flex; gap:8px;">
         <button class="btn-action btn-secondary" style="width:auto;" onclick="switchScreen('setup')">← Leave</button>
-        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match (16 Qs) 🔒</button>
+        <button class="btn-action" id="start-match-btn" style="flex:1;" onclick="launchChampionshipMatch()">Start Match (configured Qs) 🔒</button>
       </div>
     </div>
   </div>
@@ -500,6 +491,32 @@
         <span id="personal-role-tag" style="color:var(--accent-gold);">SPECTATOR</span>
       </div>
     </div>
+
+    <section id="host-dashboard" class="card-panel host-dashboard hidden">
+      <h2>🎛️ Host / Spectator Dashboard <span class="match-context-tag">HOST ONLY</span></h2>
+      <p class="dashboard-note">Live room controls sync to every connected device. Use overrides when you need to correct a score, change match rules, or resolve a question manually.</p>
+      <div class="dashboard-grid">
+        <div class="dashboard-field"><label class="label-text">Team A score override</label><input class="input-field" id="dash-score-a" type="number" step="1" value="0"></div>
+        <div class="dashboard-field"><label class="label-text">Team B score override</label><input class="input-field" id="dash-score-b" type="number" step="1" value="0"></div>
+        <div class="dashboard-field"><label class="label-text">Questions in match</label><input class="input-field" id="dash-max-questions" type="number" min="1" max="500" value="16"></div>
+        <div class="dashboard-field"><label class="label-text">Points for correct answer</label><input class="input-field" id="dash-correct-points" type="number" min="0" max="100" value="10"></div>
+        <div class="dashboard-field"><label class="label-text">Penalty for interrupt miss</label><input class="input-field" id="dash-penalty-points" type="number" min="0" max="100" value="5"></div>
+        <div class="dashboard-field"><label class="label-text">Buzz window (seconds)</label><input class="input-field" id="dash-buzz-seconds" type="number" min="3" max="60" value="10"></div>
+        <div class="dashboard-field"><label class="label-text">Answer time (seconds)</label><input class="input-field" id="dash-answer-seconds" type="number" min="5" max="120" value="20"></div>
+        <div class="dashboard-field"><label class="label-text">Question display</label><select class="input-field" id="dash-display-mode"><option value="reading-stream">Word-by-word stream</option><option value="text-only">Full text</option><option value="voice-only">Voice only</option></select></div>
+        <div class="dashboard-field"><label class="label-text">Audio target</label><select class="input-field" id="dash-audio-target"><option value="host-only">Host only</option><option value="all-devices">All devices</option></select></div>
+      </div>
+      <div class="dashboard-actions">
+        <button class="btn-action" onclick="applyHostDashboardSettings()">💾 Apply settings & scores</button>
+        <button class="btn-action btn-secondary" onclick="hostRevealAnswer()">👁 Reveal answer</button>
+        <button class="btn-action btn-secondary" onclick="hostReopenBuzz()">🔔 Reopen buzz</button>
+        <button class="btn-action btn-secondary" onclick="hostMarkQuestionDone()">⏭ End / skip question</button>
+        <button class="btn-action btn-secondary" onclick="hostResetQuestionAttempts()">↻ Reset team attempts</button>
+        <button class="btn-action btn-secondary" onclick="toggleMatchPause()">⏸ Pause / resume</button>
+        <button class="btn-action btn-secondary" onclick="loadNextQuestionCloud()">⏭ Next question</button>
+      </div>
+      <p class="dashboard-note" id="dashboard-status" aria-live="polite">Changes are saved to this room when applied.</p>
+    </section>
 
     <div class="timer-track">
       <div class="timer-fill" id="question-timer-bar"></div>
@@ -575,7 +592,6 @@
   let isResolvingTimeout = false;
   let localTtsEnabled = true;
   let usedQuestionKeys = [];
-  let customCsvLoaded = false;
 
   const fallbackQuestions = [
     { text: "In this novel, the protagonist attends lavish parties thrown by a neighbor in West Egg across the bay from Daisy. (*) Name this 1925 novel by F. Scott Fitzgerald.", answer: "The Great Gatsby" },
@@ -604,7 +620,6 @@
   }
 
   function parseCSV(csvText) {
-    csvText = String(csvText || "").replace(/^\uFEFF/, "");
     const rows = [];
     let row = [];
     let field = "";
@@ -638,76 +653,16 @@
     return rows;
   }
 
-  function buildQuestionsFromCSV(csvText) {
-    const rows = parseCSV(csvText);
-    if (!rows.length) throw new Error("The CSV is empty.");
-
-    const firstRow = rows[0].map(value => String(value || "").trim().toLowerCase());
-    const hasHeader = firstRow.some(value =>
-      ["question", "primary answer", "answer", "secondary answer", "tertiary answer"].includes(value)
-    );
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    const questions = [];
-    const seen = new Set();
-
-    dataRows.forEach(columns => {
-      const question = String(columns[0] || "").trim();
-      const answers = [1, 2, 3].map(column => String(columns[column] || "").trim()).filter(Boolean);
-      if (!question || !answers.length) return;
-      const key = question.toLowerCase().replace(/\s+/g, " ");
-      if (seen.has(key)) return;
-      seen.add(key);
-      questions.push({
-        text: question.replace(/\s+/g, " ") + " (*)",
-        answer: answers[0],
-        acceptedAnswers: [...new Set(answers)]
-      });
-    });
-
-    if (!questions.length) {
-      throw new Error("No usable questions found. Put questions in column 1 and answers in columns 2–4.");
-    }
-    return questions;
-  }
-
-  async function importCustomCSV(file) {
-    const status = document.getElementById("csv-import-status");
-    if (!file) return;
-    if (!/\.csv$/i.test(file.name) && file.type !== "text/csv") {
-      if (status) status.textContent = "Please choose a .csv file.";
-      return;
-    }
-    try {
-      const questions = buildQuestionsFromCSV(await file.text());
-      triviaQADataSet = questions;
-      customCsvLoaded = true;
-      if (status) {
-        status.textContent = `✓ Loaded ${questions.length.toLocaleString()} questions from ${file.name}.`;
-        status.style.color = "var(--team-green-base)";
-      }
-      setDatasetStatus(`Custom CSV loaded: ${questions.length.toLocaleString()} questions.`, "var(--team-green-base)");
-    } catch (err) {
-      console.error("CSV import failed:", err);
-      if (status) {
-        status.textContent = "CSV import failed: " + err.message;
-        status.style.color = "var(--team-red-base)";
-      }
-    }
-  }
-
   async function syncTriviaDataset() {
-    if (customCsvLoaded) {
-      setDatasetStatus(`Using your custom CSV (${triviaQADataSet.length.toLocaleString()} questions).`, "var(--team-green-base)");
-      return;
-    }
     setDatasetStatus("Downloading the 20,000-question Trivia-QA CSV...");
     try {
       const csvUrl = "https://huggingface.co/datasets/prajwalmani/trivia-qa-20k/resolve/main/trivia_20k.csv";
       const response = await fetch(csvUrl);
       if (!response.ok) throw new Error("Dataset download returned HTTP " + response.status);
-      const rows = parseCSV(await response.text());
+      const csvText = await response.text();
+      const rows = parseCSV(csvText);
       if (rows.length < 2) throw new Error("The downloaded CSV did not contain question rows");
-      if (customCsvLoaded) return; // A locally selected file always wins over an in-flight download.
+
       const headers = rows[0].map(value => value.replace(/^\uFEFF/, "").trim().toLowerCase());
       const questionColumn = headers.indexOf("question");
       const answerColumn = headers.indexOf("answer");
@@ -729,7 +684,6 @@
       if (!triviaQADataSet.length) throw new Error("No valid question-answer pairs were found in the CSV");
       setDatasetStatus(`Loaded ${triviaQADataSet.length.toLocaleString()} unique questions from Trivia-QA.`, "var(--team-green-base)");
     } catch (err) {
-      if (customCsvLoaded) return;
       console.warn("Trivia-QA download failed; using embedded questions:", err);
       triviaQADataSet = [];
       setDatasetStatus("Dataset unavailable. Using the embedded 16-question fallback packet.", "var(--accent-gold)");
@@ -800,7 +754,7 @@
       if ((gs.questionId + ":" + (gs.resumeToken || 0)) !== runKey) return;
       gs.status = "BUZZ_OPEN";
       gs.readingFinished = true;
-      gs.buzzDeadline = Date.now() + 10000;
+      gs.buzzDeadline = Date.now() + getRoomSetting("buzzSeconds", 10) * 1000;
       gs.answerDeadline = null;
       return gs;
     }, (error, committed) => {
@@ -811,7 +765,7 @@
 
   function speakFullQuestionAudio(gameState, runKey) {
     if (!gameState || !gameState.fullQuestion || !localTtsEnabled) return;
-    if (!gameState.voiceEnabled || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") return;
+    if (!gameState.voiceEnabled || !("speechSynthesis" in window) || typeof SpeechSynthesisUtterance !== "undefined") return;
     if (activeAudioTarget === "host-only" && !currentUser.isHost) return;
     if (lastSpokenRunKey === runKey) return;
     lastSpokenRunKey = runKey;
@@ -903,57 +857,134 @@
     }
   }
 
-  // --- ANSWER CHECKER: case/punctuation tolerant, maximum 3 typo edits ---
-  const answerStopWords = new Set(["the", "a", "an"]);
-
-  function normalizeAnswer(text) {
-    return String(text || "")
-      .toLocaleLowerCase()
-      .normalize("NFKD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/&/g, " and ")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim()
-      .replace(/\s+/g, " ")
-      .split(" ")
-      .filter(word => word && !answerStopWords.has(word))
-      .join(" ");
+  // --- ADVANCED ROBUST ANSWER CHECKER ---
+  function romanToInt(roman) {
+    const map = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
+    let total = 0;
+    const r = roman.toLowerCase();
+    for (let i = 0; i < r.length; i++) {
+      const current = map[r[i]] || 0;
+      const next = map[r[i + 1]] || 0;
+      if (current < next) {
+        total += next - current;
+        i++;
+      } else {
+        total += current;
+      }
+    }
+    return total > 0 ? total : null;
   }
 
-  function computeLevenshteinDistance(a, b) {
-    if (a === b) return 0;
-    if (!a.length) return b.length;
-    if (!b.length) return a.length;
-    if (Math.abs(a.length - b.length) > 3) return 4;
-    let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
-    for (let i = 1; i <= a.length; i++) {
-      const current = [i];
-      let rowMinimum = i;
-      for (let j = 1; j <= b.length; j++) {
-        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-        current[j] = Math.min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + cost);
-        rowMinimum = Math.min(rowMinimum, current[j]);
+  const numberWordMap = {
+    first: 1, second: 2, third: 3, fourth: 4, fifth: 5,
+    sixth: 6, seventh: 7, eighth: 8, ninth: 9, tenth: 10,
+    eleventh: 11, twelfth: 12, thirteenth: 13, fourteenth: 14, fifteenth: 15,
+    sixteenth: 16, seventeenth: 17, eighteenth: 18, nineteenth: 19, twentieth: 20,
+    one: 1, two: 2, three: 3, four: 4, five: 5,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10
+  };
+
+  const stopWords = new Set(["the", "a", "an", "of", "and", "in", "on", "at", "to", "for", "by", "with"]);
+
+  function normalizeAnswerTokens(text, removeStops = false) {
+    let clean = String(text || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/^[\s"'“”‘’]*(the|a|an)\s+/i, "")
+      .replace(/[^a-z0-9\s]/g, " ");
+
+    const words = clean.split(/\s+/).filter(Boolean);
+    const converted = words.map(w => {
+      if (numberWordMap[w] !== undefined) return String(numberWordMap[w]);
+      if (/^[ivxlcdm]+$/.test(w)) {
+        const val = romanToInt(w);
+        if (val !== null) return String(val);
       }
-      if (rowMinimum > 3) return 4;
-      previous = current;
+      return w;
+    });
+
+    if (removeStops) {
+      return converted.filter(w => !stopWords.has(w));
     }
-    return previous[b.length];
+    return converted;
+  }
+
+  // Levenshtein distance calculator for typo tolerance
+  function computeLevenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            Math.min(
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j] + 1
+            )
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
   }
 
   function evaluateCloseAnswer(userGuess, targetAnswer) {
-    const guess = normalizeAnswer(userGuess);
-    if (!guess) return false;
+    const rawGuess = String(userGuess || "").trim();
+    if (!rawGuess) return false;
+
     const answers = Array.isArray(targetAnswer) ? targetAnswer : [targetAnswer];
-    return answers.some(answer => {
-      const target = normalizeAnswer(answer);
-      if (!target) return false;
-      if (guess === target) return true;
-      const distance = computeLevenshteinDistance(guess, target);
-      const allowed = Math.min(3, Math.max(1, Math.floor(target.length * 0.20)));
-      return distance <= allowed;
-    });
+    for (const ans of answers) {
+      // 1. Direct normalized comparison with stop-words retained
+      const normTargetArr = normalizeAnswerTokens(ans, false);
+      const normGuessArr = normalizeAnswerTokens(rawGuess, false);
+      const normTargetStr = normTargetArr.join(" ");
+      const normGuessStr = normGuessArr.join(" ");
+
+      if (normTargetStr && normGuessStr && normTargetStr === normGuessStr) return true;
+
+      // 2. Stop-word insensitive comparison (e.g. "walk the line" vs "walk line")
+      const targetNoStops = normalizeAnswerTokens(ans, true);
+      const guessNoStops = normalizeAnswerTokens(rawGuess, true);
+      if (targetNoStops.length > 0 && targetNoStops.join(" ") === guessNoStops.join(" ")) {
+        return true;
+      }
+
+      // 3. Token-by-token typo tolerance
+      if (normTargetArr.length === normGuessArr.length) {
+        let allMatch = true;
+        for (let i = 0; i < normTargetArr.length; i++) {
+          const tw = normTargetArr[i];
+          const gw = normGuessArr[i];
+          if (tw === gw) continue;
+          const dist = computeLevenshteinDistance(tw, gw);
+          const maxAllowed = tw.length > 5 ? 2 : (tw.length > 3 ? 1 : 0);
+          if (dist > maxAllowed) {
+            allMatch = false;
+            break;
+          }
+        }
+        if (allMatch) return true;
+      }
+
+      // 4. Overall string distance threshold for short strings / typos
+      if (normTargetStr.length > 0 && normGuessStr.length > 0) {
+        const totalDist = computeLevenshteinDistance(normTargetStr, normGuessStr);
+        const maxLength = Math.max(normTargetStr.length, normGuessStr.length);
+        if (maxLength > 0 && (totalDist / maxLength) <= 0.22) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
-  // --- END OF ANSWER CHECKER ---
+  // --- END OF ADVANCED ROBUST ANSWER CHECKER ---
 
   function generateRandomPin() {
     return Math.floor(1000 + Math.random() * 9000).toString();
@@ -970,8 +1001,6 @@
   window.addEventListener("DOMContentLoaded", () => {
     const ttsSelect = document.getElementById("tts-select");
     if (ttsSelect) localTtsEnabled = ttsSelect.value === "on";
-    const csvInput = document.getElementById("csv-file-input");
-    if (csvInput) csvInput.addEventListener("change", event => importCustomCSV(event.target.files && event.target.files[0]));
     syncTriviaDataset();
   });
 
@@ -1026,6 +1055,7 @@
       host: hostName,
       displayMode: activeDisplayMode,
       audioTarget: activeAudioTarget,
+      settings: { maxQuestions: 16, correctPoints: 10, penaltyPoints: 5, buzzSeconds: 10, answerSeconds: 20 },
       roster: initialRoster,
       gameState: {
         status: "LOBBY", scoreA: 0, scoreB: 0, questionIndex: 0,
@@ -1292,6 +1322,20 @@
       if (!data) return;
       activeDisplayMode = data.displayMode || "reading-stream";
       activeAudioTarget = data.audioTarget || "all-devices";
+      const roomSettings = data.settings || {};
+      window.currentRoomSettings = roomSettings;
+      if (currentUser.isHost) {
+        document.getElementById("host-dashboard").classList.remove("hidden");
+        setDashboardValue("dash-max-questions", roomSettings.maxQuestions, 16);
+        setDashboardValue("dash-correct-points", roomSettings.correctPoints, 10);
+        setDashboardValue("dash-penalty-points", roomSettings.penaltyPoints, 5);
+        setDashboardValue("dash-buzz-seconds", roomSettings.buzzSeconds, 10);
+        setDashboardValue("dash-answer-seconds", roomSettings.answerSeconds, 20);
+        document.getElementById("dash-display-mode").value = activeDisplayMode;
+        document.getElementById("dash-audio-target").value = activeAudioTarget;
+      } else {
+        document.getElementById("host-dashboard").classList.add("hidden");
+      }
       const roster = Array.isArray(data.roster) ? data.roster : [];
       const gameState = data.gameState || {};
       const previousStatus = currentGameState && currentGameState.status;
@@ -1300,7 +1344,12 @@
 
       document.getElementById("score-a").textContent = gameState.scoreA || 0;
       document.getElementById("score-b").textContent = gameState.scoreB || 0;
-      document.getElementById("rotation-status-badge").textContent = `Q ${Math.min(gameState.questionIndex || 1, 16)} / 16`;
+      if (currentUser.isHost) {
+        setDashboardValue("dash-score-a", Number(gameState.scoreA) || 0, 0);
+        setDashboardValue("dash-score-b", Number(gameState.scoreB) || 0, 0);
+      }
+      const maxQuestions = Number((data.settings || {}).maxQuestions) || 16;
+      document.getElementById("rotation-status-badge").textContent = `Q ${Math.min(gameState.questionIndex || 1, maxQuestions)} / ${maxQuestions}`;
       const qBox = document.getElementById("active-question-box");
       if (activeDisplayMode === "voice-only") qBox.textContent = "[Audio Mode: Text hidden]";
       else qBox.textContent = gameState.questionText || "";
@@ -1364,9 +1413,13 @@
       const snapshot = await stateRef.once("value");
       const current = snapshot.val() || {};
       if (current.status !== "LOBBY" && current.status !== "LOADING" && current.status !== "ENDED") return;
+      const roomSnapshot = await dbRef.ref("rooms/" + activeRoomPin).once("value");
+      const roomData = roomSnapshot.val() || {};
+      const settings = roomData.settings || {};
+      const maxQuestions = Math.max(1, Math.min(500, Number(settings.maxQuestions) || 16));
       const nextIndex = (Number(current.questionIndex) || 0) + 1;
-      if (nextIndex > 16) {
-        await stateRef.update({ status: "MATCH_COMPLETE", reason: "🏆 All 16 questions complete. Final Scores:", buzzPlayer: null, buzzPlayerId: null });
+      if (nextIndex > maxQuestions) {
+        await stateRef.update({ status: "MATCH_COMPLETE", reason: `🏆 All ${maxQuestions} questions complete. Final Scores:`, buzzPlayer: null, buzzPlayerId: null });
         return;
       }
 
@@ -1436,7 +1489,7 @@
         gs.buzzTeam = currentUser.team;
         gs.buzzAt = now;
         gs.isInterrupt = wasInterrupt;
-        gs.answerDeadline = now + 20000;
+        gs.answerDeadline = now + getRoomSetting("answerSeconds", 20) * 1000;
         gs.buzzDeadline = null;
         return gs;
       }, undefined, false);
@@ -1472,15 +1525,17 @@
         let scoreA = Number(gs.scoreA) || 0;
         let scoreB = Number(gs.scoreB) || 0;
         if (correct) {
-          if (team === "A") scoreA += 10;
-          if (team === "B") scoreB += 10;
+          const points = getRoomSetting("correctPoints", 10);
+          if (team === "A") scoreA += points;
+          if (team === "B") scoreB += points;
           outcome = "correct";
           gs.status = "ENDED";
           gs.reason = "✅ Correct Answer:";
         } else {
           if (gs.isInterrupt) {
-            if (team === "A") scoreA -= 5;
-            if (team === "B") scoreB -= 5;
+            const penalty = getRoomSetting("penaltyPoints", 5);
+            if (team === "A") scoreA -= penalty;
+            if (team === "B") scoreB -= penalty;
           }
           outcome = "incorrect";
           const bothAttempted = Boolean(attemptedTeams.A && attemptedTeams.B);
@@ -1497,7 +1552,7 @@
           } else {
             gs.status = "BUZZ_OPEN";
             gs.readingFinished = true;
-            gs.buzzDeadline = Date.now() + 10000;
+            gs.buzzDeadline = Date.now() + getRoomSetting("buzzSeconds", 10) * 1000;
             gs.isInterrupt = false;
           }
           gs.reason = gs.status === "ENDED" ? gs.reason : "Incorrect answer. The other team may buzz.";
@@ -1522,15 +1577,74 @@
 
   function submitCompetitorAnswer(isTimeout = false) {
     if (!currentGameState || currentGameState.status !== "BUZZED" || currentGameState.buzzPlayerId !== currentUser.clientId) return;
-    const answerInput = document.getElementById("competitor-answer-input");
-    const guess = isTimeout ? "" : answerInput.value.trim();
-    if (!isTimeout && !guess) {
-      answerInput.focus();
-      return;
-    }
+    const guess = isTimeout ? "" : document.getElementById("competitor-answer-input").value;
     document.getElementById("answer-input-container").classList.add("hidden");
-    answerInput.value = "";
     resolveCurrentAnswer(guess, isTimeout, false);
+  }
+
+  function getRoomSetting(key, fallback) {
+    return Number((window.currentRoomSettings || {})[key]) || fallback;
+  }
+
+  function setDashboardValue(id, value, fallback) {
+    const el = document.getElementById(id);
+    if (el && (document.activeElement !== el || el.value === "")) el.value = value == null ? fallback : value;
+  }
+
+  async function applyHostDashboardSettings() {
+    if (!currentUser.isHost || !activeRoomPin) return;
+    const read = (id, min, max, fallback) => {
+      const n = Number(document.getElementById(id).value);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
+    };
+    const settings = {
+      maxQuestions: read("dash-max-questions", 1, 500, 16),
+      correctPoints: read("dash-correct-points", 0, 100, 10),
+      penaltyPoints: read("dash-penalty-points", 0, 100, 5),
+      buzzSeconds: read("dash-buzz-seconds", 3, 60, 10),
+      answerSeconds: read("dash-answer-seconds", 5, 120, 20)
+    };
+    const scoreA = read("dash-score-a", -9999, 9999, 0);
+    const scoreB = read("dash-score-b", -9999, 9999, 0);
+    const displayMode = document.getElementById("dash-display-mode").value;
+    const audioTarget = document.getElementById("dash-audio-target").value;
+    try {
+      await dbRef.ref("rooms/" + activeRoomPin).update({ settings, displayMode, audioTarget });
+      await dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({ scoreA, scoreB });
+      activeDisplayMode = displayMode;
+      activeAudioTarget = audioTarget;
+      window.currentRoomSettings = settings;
+      document.getElementById("dashboard-status").textContent = "✓ Settings and scores saved. They are now active for the room.";
+    } catch (err) {
+      console.error("Dashboard update failed:", err);
+      document.getElementById("dashboard-status").textContent = "Could not save changes. Check the room connection and Firebase rules.";
+    }
+  }
+
+  async function hostRevealAnswer() {
+    if (!currentUser.isHost || !activeRoomPin || !currentGameState) return;
+    const answer = currentGameState.answerline || (currentGameState.acceptedAnswers || [])[0] || "No answer available";
+    await dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({ status: "ENDED", reason: "👁 Host revealed the answer:", answerline: answer, buzzPlayer: null, buzzPlayerId: null, answerDeadline: null, buzzDeadline: null });
+    document.getElementById("dashboard-status").textContent = "Answer revealed to everyone. Use Next Q to continue.";
+  }
+
+  async function hostReopenBuzz() {
+    if (!currentUser.isHost || !activeRoomPin || !currentGameState) return;
+    const seconds = getRoomSetting("buzzSeconds", 10);
+    await dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({ status: "BUZZ_OPEN", readingStarted: true, readingFinished: true, buzzDeadline: Date.now() + seconds * 1000, answerDeadline: null, buzzPlayer: null, buzzPlayerId: null, buzzTeam: null, reason: "Host reopened the buzz window.", isInterrupt: false });
+    document.getElementById("dashboard-status").textContent = "Buzz window reopened for all teams.";
+  }
+
+  async function hostMarkQuestionDone() {
+    if (!currentUser.isHost || !activeRoomPin || !currentGameState) return;
+    await dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({ status: "ENDED", reason: "⏭ Host ended / skipped this question. Correct Answer:", buzzPlayer: null, buzzPlayerId: null, answerDeadline: null, buzzDeadline: null });
+    document.getElementById("dashboard-status").textContent = "Question ended. Press Next Q to move on.";
+  }
+
+  async function hostResetQuestionAttempts() {
+    if (!currentUser.isHost || !activeRoomPin || !currentGameState) return;
+    await dbRef.ref("rooms/" + activeRoomPin + "/gameState").update({ attemptedTeams: {}, buzzPlayer: null, buzzPlayerId: null, buzzTeam: null, status: "BUZZ_OPEN", readingStarted: true, readingFinished: true, buzzDeadline: Date.now() + getRoomSetting("buzzSeconds", 10) * 1000, answerDeadline: null, isInterrupt: false, reason: "Host reset both teams' attempts." });
+    document.getElementById("dashboard-status").textContent = "Both teams' attempts reset; buzz is open again.";
   }
 
   function toggleMatchPause() {
